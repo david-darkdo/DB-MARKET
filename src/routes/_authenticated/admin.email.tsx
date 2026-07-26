@@ -123,7 +123,6 @@ function CommunicationCenterPage() {
       void loadAllData();
     } catch (err: any) {
       toast.error(err.message);
-    } font-mono
     } finally {
       setBusy(false);
     }
