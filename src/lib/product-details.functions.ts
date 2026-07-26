@@ -1,27 +1,33 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getAIProvider, AIProviderError } from "./ai-providers";
+import { getAIProvider } from "./ai-providers";
 
-async function callLLM(provider: any, prompt: string, system: string): Promise<string> {
-  return provider.callLLM(prompt, system);
-}
+async function tryJSON<T = any>(
+  provider: any,
+  prompt: string,
+  system: string,
+  imageUrl?: string
+): Promise<{ data: T | null; raw: string; error?: string }> {
+  try {
+    const raw = await provider.callLLM(prompt, system, imageUrl);
+    if (!raw) return { data: null, raw: "", error: "AI model returned an empty text response." };
 
-async function tryJSON<T = any>(provider: any, prompt: string, system: string): Promise<T | null> {
-  const raw = await callLLM(provider, prompt + "\n\nReturn ONLY compact JSON.", system);
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]) as T; } catch { return null; }
+    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (!m) return { data: null, raw, error: "No JSON object found in AI response." };
+
+    const data = JSON.parse(m[0]) as T;
+    return { data, raw };
+  } catch (err: any) {
+    return { data: null, raw: "", error: err.message || "Failed to execute LLM call or parse JSON response." };
+  }
 }
 
 /**
- * ENGINE 1: PRODUCT DETAILS ENGINE (BUILD H — UNIVERSAL AI OPERATING SYSTEM V4.0)
+ * ENGINE 1: PRODUCT DETAILS ENGINE (BUILD V2 / BUILD V3 — UNIVERSAL PRODUCT INTELLIGENCE)
  * 
- * Responsible for ALL text generation (Description, Canonical Short Description, SEO Title,
- * Meta Description, SEO Keywords, Canonical Slug, Open Graph, Twitter Card, FAQ, Structured Data,
- * Search Keywords, Filter Tokens, and Recommendations).
- * 
- * Performs 100% deterministic database routing of the returned JSON payload.
- * Zero image generation. Completely isolated from Engine 2 (Lifestyle Image Engine).
+ * Performs end-to-end audit, template loading, payload construction, multimodal AI call,
+ * JSON validation, deterministic database routing, and search index rebuilding.
  */
 export const runProductDetailsEngine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -34,7 +40,7 @@ export const runProductDetailsEngine = createServerFn({ method: "POST" })
     const { productId } = data;
     const started = Date.now();
 
-    // 1. Retrieve Product Record
+    // STAGE 1 — Retrieve Product Record
     const { data: product, error: pErr } = await supabase
       .from("products")
       .select("*")
@@ -42,10 +48,10 @@ export const runProductDetailsEngine = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (pErr || !product) {
-      throw new Error(pErr?.message ?? "Product not found");
+      throw new Error(pErr?.message ?? `Product ID ${productId} not found`);
     }
 
-    // 2. Resolve Taxonomy Names & Settings
+    // STAGE 2 — Resolve Taxonomy Names & Custom Overrides
     let contextName = "luxury showroom";
     let categoryName = "premium material";
     let typeName = "product";
@@ -69,26 +75,30 @@ export const runProductDetailsEngine = createServerFn({ method: "POST" })
 
     const familyOverride = famRes.data?.custom_ai_prompt_override ?? null;
 
-    // 3. Retrieve Universal Product Details Prompt Template
+    // STAGE 3 — Load Active AI Prompt Template
     const { data: activeTemplate } = await supabase
       .from("ai_prompt_templates")
       .select("prompt_text")
-      .eq("key", "product_details")
+      .or("key.eq.product_details,key.eq.understanding")
       .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    const templateText = activeTemplate?.prompt_text || `You are a master product details and luxury copywriting engine for an architectural material catalog.
-Analyze the product details:
-Name: {product_name}
+    const templateText = activeTemplate?.prompt_text || `Analyze the product details:
+Product Name: {product_name}
+Code: {code}
 Brand: {brand}
 Production Name: {production_name}
 Finish: {finish}
 Material: {material}
 Color: {color}
 Size: {size}
+Price: {price}
 Type: {type}
 Category: {category}
 Subcategory: {subcategory}
+Family Group: {family}
 
 Output strict JSON with:
 - generated_description
@@ -100,21 +110,34 @@ Output strict JSON with:
 - og_title
 - og_description
 - twitter_card
-- faq (array)
-- structured_data
+- faq (array of {question, answer})
+- structured_data (JSON object)
 - search_keywords (array)
-- related_product_types (array)
-- complementary_materials (array)`;
+- alternative_terms (array)
+- related_terms (array)
+- synonyms (array)
+- misspellings (array)`;
 
-    // 4. Interpolate Product Metadata into Prompt
+    const systemPrompt = `You are Enreach Product Intelligence AI, an expert in luxury building materials, architectural finishes, premium interiors, showroom product merchandising, customer discovery, and technical SEO.
+
+Your responsibility is to analyze one product using its image and metadata, generate accurate structured product intelligence, and return valid JSON only.
+
+Never return explanations.
+Never return markdown.
+Never return prose outside JSON.
+Your output will directly populate the Enreach Digital Showroom database.`;
+
+    // STAGE 4 — Interpolate Product Metadata Payload
     let prompt = templateText
       .replace(/{product_name}/g, product.name || "")
-      .replace(/{brand}/g, product.brand ?? "premium")
+      .replace(/{code}/g, product.code || "")
+      .replace(/{brand}/g, product.brand ?? "Enreach Showroom")
       .replace(/{production_name}/g, product.production_name ?? "")
       .replace(/{finish}/g, product.finish ?? product.finish_name ?? "premium finish")
       .replace(/{material}/g, product.material ?? "premium material")
       .replace(/{color}/g, product.color ?? "")
       .replace(/{size}/g, product.size ?? "")
+      .replace(/{price}/g, product.price ? String(product.price) : "")
       .replace(/{context}/g, contextName)
       .replace(/{type}/g, typeName)
       .replace(/{category}/g, categoryName)
@@ -122,10 +145,10 @@ Output strict JSON with:
       .replace(/{family}/g, familyName);
 
     if (familyOverride) {
-      prompt += `\n\nAdditional Directives: ${familyOverride}`;
+      prompt += `\n\nAdditional Family Directives: ${familyOverride}`;
     }
 
-    // 5. Retrieve Active AI Provider & Call Text LLM
+    // STAGE 5 — Call Active LLM Provider
     const settings = settingsRes.data;
     const config = settings ? {
       activeProvider: settings.active_ai_provider || "openai",
@@ -137,22 +160,24 @@ Output strict JSON with:
     } : undefined;
 
     const provider = getAIProvider(config as any);
+    const imageUrl = product.image_url || undefined;
 
-    const json = await tryJSON<any>(
+    const { data: json, raw, error: parseError } = await tryJSON<any>(
       provider,
       prompt,
-      "You are a master Product Details and SEO copy generation engine. Return ONLY valid compact JSON."
+      systemPrompt,
+      imageUrl
     );
 
     if (!json) {
-      throw new Error("Text AI model returned an invalid or empty JSON payload.");
+      throw new Error(`Engine 1 [${provider.name}]: ${parseError || "Failed to generate valid JSON intelligence payload"}`);
     }
 
-    // 6. Deterministic Database Routing (Mapping returned JSON keys to DB columns)
+    // STAGE 6 — Deterministic Database Routing & Critical Sync Rule
     const productPatch: Record<string, any> = {};
 
-    // CRITICAL SYNC RULE (ENREACH V2): Product Description = SEO Description (Always Mirrored)
-    const syncedDescription = json.seo_description || json.meta_description || json.generated_description || json.description;
+    // CRITICAL SYNC RULE: Product Description == SEO Description
+    const syncedDescription = json.seo_description || json.meta_description || json.generated_description || json.description || json.short_description || "";
     if (syncedDescription) {
       productPatch.generated_description = syncedDescription;
       productPatch.short_description = syncedDescription;
@@ -161,7 +186,7 @@ Output strict JSON with:
       }
     }
 
-    // SEO Fields
+    // SEO Metadata Fields
     if (!product.seo_title_manual && json.seo_title) {
       productPatch.seo_title = json.seo_title;
     }
@@ -175,7 +200,7 @@ Output strict JSON with:
     if (json.faq) productPatch.faq = json.faq;
     if (json.structured_data) productPatch.structured_data = json.structured_data;
 
-    // Search Keywords & Filter Tokens
+    // Search Keywords, Terms & Tokens
     const rawSearchKeywords = [
       ...(Array.isArray(json.search_keywords) ? json.search_keywords : []),
       ...(Array.isArray(json.alternative_terms) ? json.alternative_terms : []),
@@ -195,16 +220,19 @@ Output strict JSON with:
       productPatch.app_search_keywords = searchArray;
     }
 
-    // Status & State
+    // Execution Tracking
     productPatch.processing_state = "completed";
     productPatch.is_published = true;
     productPatch.last_processed_at = new Date().toISOString();
     productPatch.error_log = null;
 
-    // Save Product Record Updates
-    await supabase.from("products").update(productPatch as any).eq("id", productId);
+    // STAGE 7 — Save Product Updates to Supabase
+    const { error: updateErr } = await supabase.from("products").update(productPatch as any).eq("id", productId);
+    if (updateErr) {
+      throw new Error(`Failed to update product record: ${updateErr.message}`);
+    }
 
-    // Save Product Intelligence / Understanding Backup
+    // Save Product Intelligence Backup
     await supabase.from("product_understanding" as any).upsert({
       product_id: productId,
       raw_ai_response: json,
@@ -230,12 +258,12 @@ Output strict JSON with:
       } as any).eq("id", productId);
     }
 
-    // Rebuild Search Index for Product
+    // Rebuild Search Index
     await supabase.rpc("rebuild_search_index" as any, { _product_id: productId } as any);
 
     const executionMs = Date.now() - started;
 
-    // 7. Log Execution Metrics in ai_jobs
+    // Log Execution Metrics in ai_jobs
     try {
       await supabase.from("ai_jobs" as any).insert({
         product_id: productId,
@@ -251,9 +279,18 @@ Output strict JSON with:
       });
     } catch {}
 
+    // STAGE 8 — Re-query Updated Product Row for Verification
+    const { data: verifiedProduct } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", productId)
+      .single();
+
     return {
       ok: true,
       details: json,
+      syncedDescription,
+      product: verifiedProduct,
       executionMs,
       providerName: provider.name,
     };
