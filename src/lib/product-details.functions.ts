@@ -151,19 +151,19 @@ Output strict JSON with:
     // 6. Deterministic Database Routing (Mapping returned JSON keys to DB columns)
     const productPatch: Record<string, any> = {};
 
-    // Description & Canonical Lock
-    const descriptionText = json.generated_description || json.description;
-    if (descriptionText) {
-      productPatch.generated_description = descriptionText;
-      productPatch.short_description = descriptionText; // Canonical Description Lock
+    // CRITICAL SYNC RULE (ENREACH V2): Product Description = SEO Description (Always Mirrored)
+    const syncedDescription = json.seo_description || json.meta_description || json.generated_description || json.description;
+    if (syncedDescription) {
+      productPatch.generated_description = syncedDescription;
+      productPatch.short_description = syncedDescription;
+      if (!product.seo_description_manual) {
+        productPatch.seo_description = syncedDescription;
+      }
     }
 
     // SEO Fields
     if (!product.seo_title_manual && json.seo_title) {
       productPatch.seo_title = json.seo_title;
-    }
-    if (!product.seo_description_manual && (json.meta_description || json.seo_description)) {
-      productPatch.seo_description = json.meta_description || json.seo_description;
     }
     if (!product.seo_keywords_manual && Array.isArray(json.seo_keywords)) {
       productPatch.seo_keywords = json.seo_keywords;
@@ -178,6 +178,10 @@ Output strict JSON with:
     // Search Keywords & Filter Tokens
     const rawSearchKeywords = [
       ...(Array.isArray(json.search_keywords) ? json.search_keywords : []),
+      ...(Array.isArray(json.alternative_terms) ? json.alternative_terms : []),
+      ...(Array.isArray(json.related_terms) ? json.related_terms : []),
+      ...(Array.isArray(json.synonyms) ? json.synonyms : []),
+      ...(Array.isArray(json.customer_phrases) ? json.customer_phrases : []),
       ...(Array.isArray(json.builder_terminology) ? json.builder_terminology : []),
       ...(Array.isArray(json.designer_terminology) ? json.designer_terminology : []),
       ...(Array.isArray(json.contractor_terminology) ? json.contractor_terminology : []),

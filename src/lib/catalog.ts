@@ -61,20 +61,65 @@ export type FeedFilters = {
 };
 
 export async function fetchFeedProducts(filters: FeedFilters): Promise<ProductRow[]> {
-  // Search path: use TSVector search_index when q is present.
+  // Unified Search Path (ENREACH V2 Requirement 2: Manual Data + Hierarchy Metadata + AI Intelligence Union)
   if (filters.q && filters.q.trim()) {
     const term = filters.q.trim();
-    const { data: ranked, error: rankErr } = await supabase.rpc("search_products" as any, {
+    const matchedIdSet = new Set<string>();
+
+    // 1. TSVector search_products RPC
+    const { data: ranked } = await supabase.rpc("search_products" as any, {
       _q: term,
       _limit: 60,
     } as any);
-    if (rankErr) throw rankErr;
-    const ids = ((ranked ?? []) as any[]).map((r) => r.product_id);
-    if (ids.length === 0) return [];
+    if (ranked && Array.isArray(ranked)) {
+      ranked.forEach((r: any) => { if (r?.product_id) matchedIdSet.add(r.product_id); });
+    }
+
+    // 2. Direct ILIKE search on manual product attributes (Name, Code, Brand, Short Description, Material, Finish, Color, Size)
+    const { data: ilikeProducts } = await applyPublicFilters(
+      supabase.from("products").select("id")
+    ).or(`name.ilike.%${term}%,code.ilike.%${term}%,brand.ilike.%${term}%,short_description.ilike.%${term}%,material.ilike.%${term}%,finish.ilike.%${term}%,color.ilike.%${term}%,size.ilike.%${term}%`);
+
+    if (ilikeProducts) {
+      ilikeProducts.forEach((p: any) => matchedIdSet.add(p.id));
+    }
+
+    // 3. Hierarchy Metadata Search (Product Types, Categories, Subcategories, Family Groups matching query term)
+    const [typeMatches, catMatches, subMatches, famMatches] = await Promise.all([
+      supabase.from("product_types").select("id").ilike("name", `%${term}%`),
+      supabase.from("categories").select("id").ilike("name", `%${term}%`),
+      supabase.from("subcategories").select("id").ilike("name", `%${term}%`),
+      supabase.from("family_groups").select("id").ilike("name", `%${term}%`),
+    ]);
+
+    const typeIds = (typeMatches.data || []).map((t: any) => t.id);
+    const catIds = (catMatches.data || []).map((c: any) => c.id);
+    const subIds = (subMatches.data || []).map((s: any) => s.id);
+    const famIds = (famMatches.data || []).map((f: any) => f.id);
+
+    const hierOrConditions: string[] = [];
+    if (typeIds.length) hierOrConditions.push(`type_id.in.(${typeIds.join(",")})`);
+    if (catIds.length) hierOrConditions.push(`category_id.in.(${catIds.join(",")})`);
+    if (subIds.length) hierOrConditions.push(`subcategory_id.in.(${subIds.join(",")})`);
+    if (famIds.length) hierOrConditions.push(`family_id.in.(${famIds.join(",")})`);
+
+    if (hierOrConditions.length > 0) {
+      const { data: hierProducts } = await applyPublicFilters(
+        supabase.from("products").select("id")
+      ).or(hierOrConditions.join(","));
+      if (hierProducts) {
+        hierProducts.forEach((p: any) => matchedIdSet.add(p.id));
+      }
+    }
+
+    const finalIds = Array.from(matchedIdSet);
+    if (finalIds.length === 0) return [];
+
     let byIdQuery = applyPublicFilters(
       supabase.from("products").select(PRODUCT_FIELDS),
-    ).in("id", ids);
-    // Apply hierarchy filters if provided.
+    ).in("id", finalIds);
+
+    // Apply explicit hierarchy dropdown filters if active
     if (filters.type) {
       const { data } = await supabase.from("product_types").select("id").eq("slug", filters.type).maybeSingle();
       if (data?.id) byIdQuery = byIdQuery.eq("type_id", data.id);
@@ -87,12 +132,13 @@ export async function fetchFeedProducts(filters: FeedFilters): Promise<ProductRo
       const { data } = await supabase.from("subcategories").select("id").eq("slug", filters.subcategory).maybeSingle();
       if (data?.id) byIdQuery = byIdQuery.eq("subcategory_id", data.id);
     }
+
     const { data, error } = await byIdQuery;
     if (error) throw error;
-    // Preserve rank order.
-    const order = new Map(ids.map((id, i) => [id, i] as const));
+
+    const rankOrder = new Map(finalIds.map((id, i) => [id, i] as const));
     return ((data ?? []) as ProductRow[]).sort(
-      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+      (a, b) => (rankOrder.get(a.id) ?? 0) - (rankOrder.get(b.id) ?? 0),
     );
   }
 

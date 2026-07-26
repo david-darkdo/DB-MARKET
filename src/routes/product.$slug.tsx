@@ -277,6 +277,7 @@ function ProductPage() {
       "@type": "Brand",
       "name": product.brand || "Enreach Concepts"
     },
+    "category": taxonomy.subcategory?.name ? `${taxonomy.category?.name || "Material"} > ${taxonomy.subcategory.name}` : (taxonomy.category?.name || "Material"),
     "offers": {
       "@type": "Offer",
       "url": `${origin}/product/${product.slug}`,
@@ -433,8 +434,14 @@ function ProductPage() {
             </div>
           )}
 
-          {/* Technical Specifications */}
-          <dl className="grid grid-cols-3 gap-3 text-xs max-w-lg">
+          {/* Technical Specifications & Subcategory Identity */}
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs max-w-xl">
+            {taxonomy.subcategory?.name && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 shadow-sm">
+                <dt className="text-[9px] font-bold uppercase tracking-wider text-primary">Subcategory</dt>
+                <dd className="mt-1 font-semibold text-foreground text-xs">{taxonomy.subcategory.name}</dd>
+              </div>
+            )}
             {[
               ["Color", product.color],
               ["Material", product.material],

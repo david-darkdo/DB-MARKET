@@ -126,14 +126,16 @@ function UnifiedNewProductPage() {
       const res = await runProductDetailsEngine({ data: { productId: tempProduct.id } });
       if (res.ok && res.details) {
         const d = res.details;
+        // CRITICAL SYNC RULE: Product Description == SEO Description
+        const syncedDesc = d.seo_description || d.meta_description || d.short_description || d.generated_description;
         setForm((prev) => ({
           ...prev,
-          description: d.short_description || d.generated_description || prev.description,
+          description: syncedDesc || prev.description,
           seo_title: d.seo_title || prev.seo_title,
-          seo_description: d.seo_description || prev.seo_description,
+          seo_description: syncedDesc || prev.seo_description,
           seo_keywords: Array.isArray(d.seo_keywords) ? d.seo_keywords.join(", ") : (d.seo_keywords || prev.seo_keywords)
         }));
-        toast.success("Product details generated and filled into form fields!");
+        toast.success("Product details generated! Description & SEO Description synced!");
       }
       // Clean up temp product
       await supabase.from("products").delete().eq("id", tempProduct.id);
