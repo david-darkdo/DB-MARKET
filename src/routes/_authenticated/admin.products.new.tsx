@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, Sparkles, Upload, FileText, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck } from "lucide-react";
@@ -127,6 +128,10 @@ function RebuiltNewProductPage() {
     }));
   };
 
+  const runDetailsFn = useServerFn(runProductDetailsEngine);
+  const generateLifestyleFn = useServerFn(generateStandaloneLifestyleImage);
+  const runPipelineFn = useServerFn(runProductPipeline);
+
   // ENGINE 1 Execution
   const handleGenerateDetailsOnNew = async () => {
     if (!form.name.trim()) {
@@ -162,7 +167,7 @@ function RebuiltNewProductPage() {
         throw new Error(tempErr?.message || "Failed to initialize temporary draft");
       }
 
-      const res = await runProductDetailsEngine({ data: { productId: tempProduct.id } });
+      const res = await runDetailsFn({ data: { productId: tempProduct.id } });
       if (res.ok && res.details) {
         const d = res.details;
         setAiIntelligence(d);
@@ -232,7 +237,7 @@ function RebuiltNewProductPage() {
         throw new Error(tempErr?.message || "Failed to create draft for lifestyle generation");
       }
 
-      const res = await generateStandaloneLifestyleImage({ data: { productId: tempProduct.id } });
+      const res = await generateLifestyleFn({ data: { productId: tempProduct.id } });
       if (res.ok && res.imageUrl) {
         setInstalledPath(res.imageUrl);
         toast.success("Engine 2: Installed lifestyle image generated successfully!");
@@ -800,9 +805,9 @@ function RebuiltNewProductPage() {
         {showSearchSection && (
           <div className="p-5 border-t border-border space-y-4 bg-muted/10">
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Keywords</label>
-              <textarea
-                rows={2}
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Keywords (Comma Separated)</label>
+              <input
+                type="text"
                 value={form.search_keywords}
                 onChange={(e) => setForm((f) => ({ ...f, search_keywords: e.target.value }))}
                 className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
@@ -820,7 +825,7 @@ function RebuiltNewProductPage() {
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Synonyms & Customer Phrases</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Synonyms</label>
                 <input
                   type="text"
                   value={form.synonyms}
@@ -830,7 +835,7 @@ function RebuiltNewProductPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border/50">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Related Terms</label>
                 <input
