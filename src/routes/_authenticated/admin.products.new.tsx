@@ -71,9 +71,6 @@ function RebuiltNewProductPage() {
     seo_keywords: "",
     canonical_slug: "",
     meta_keywords: "",
-    og_title: "",
-    og_description: "",
-    twitter_card: "summary_large_image",
     search_keywords: "",
     alternative_terms: "",
     synonyms: "",
@@ -184,9 +181,6 @@ function RebuiltNewProductPage() {
           seo_description: syncedDesc || prev.seo_description,
           seo_keywords: seoKw || prev.seo_keywords,
           canonical_slug: d.canonical_slug || prev.canonical_slug,
-          og_title: d.og_title || d.seo_title || prev.og_title,
-          og_description: d.og_description || syncedDesc || prev.og_description,
-          twitter_card: d.twitter_card || "summary_large_image",
           search_keywords: searchKw || prev.search_keywords,
           alternative_terms: Array.isArray(d.alternative_terms) ? d.alternative_terms.join(", ") : (d.alternative_terms || ""),
           synonyms: Array.isArray(d.synonyms) ? d.synonyms.join(", ") : (d.synonyms || ""),
@@ -319,9 +313,6 @@ function RebuiltNewProductPage() {
       seo_description: finalSyncedDesc,
       seo_keywords: seoKeywordsArray,
       canonical_slug: form.canonical_slug.trim() || null,
-      og_title: form.og_title.trim() || form.seo_title.trim() || null,
-      og_description: form.og_description.trim() || finalSyncedDesc,
-      twitter_card: form.twitter_card || "summary_large_image",
       faq: aiIntelligence?.faq || null,
       structured_data: aiIntelligence?.structured_data || null,
       app_keywords: searchKeywordsArray,
@@ -758,27 +749,6 @@ function RebuiltNewProductPage() {
                   type="text"
                   value={form.canonical_slug}
                   onChange={(e) => setForm((f) => ({ ...f, canonical_slug: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border/50">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Open Graph Title</label>
-                <input
-                  type="text"
-                  value={form.og_title}
-                  onChange={(e) => setForm((f) => ({ ...f, og_title: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Twitter Card Type</label>
-                <input
-                  type="text"
-                  value={form.twitter_card}
-                  onChange={(e) => setForm((f) => ({ ...f, twitter_card: e.target.value }))}
                   className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono"
                 />
               </div>
