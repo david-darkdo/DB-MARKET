@@ -1,8 +1,10 @@
 export interface AIProviderConfig {
   activeProvider: string;
+  openaiApiKey?: string | null;
   openaiLlmModel?: string | null;
   openaiImageModel?: string | null;
   openaiImageSize?: string | null;
+  geminiApiKey?: string | null;
   geminiLlmModel?: string | null;
   geminiImageModel?: string | null;
   geminiUseVertex?: boolean;
@@ -10,7 +12,7 @@ export interface AIProviderConfig {
 
 export interface AIProvider {
   name: string;
-  callLLM(prompt: string, systemPrompt: string): Promise<string>;
+  callLLM(prompt: string, systemPrompt: string, imageUrl?: string): Promise<string>;
   generateImage(prompt: string): Promise<Buffer>;
   generateLifestyleImage(prompt: string, originalImageBuffer?: Buffer): Promise<Buffer>;
 }
@@ -54,12 +56,12 @@ export class GeminiProvider implements AIProvider {
     this.config = config;
   }
 
-  async callLLM(prompt: string, systemPrompt: string): Promise<string> {
-    const key = process.env.GEMINI_API_KEY || process.env.LOVABLE_API_KEY;
+  async callLLM(prompt: string, systemPrompt: string, imageUrl?: string): Promise<string> {
+    const key = this.config?.geminiApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("GEMINI_API_KEY environment variable is not defined");
 
     const isVertex = this.config?.geminiUseVertex ?? key.startsWith("AQ");
-    const model = this.config?.geminiLlmModel || process.env.GEMINI_LLM_MODEL || process.env.GEMINI_LLM_MODEL;
+    const model = this.config?.geminiLlmModel || process.env.GEMINI_LLM_MODEL || "gemini-2.5-flash";
     
     let url = "";
     if (isVertex) {
@@ -70,12 +72,13 @@ export class GeminiProvider implements AIProvider {
       url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     }
 
+    const parts: any[] = [{ text: prompt }];
     const requestHeaders = { "Content-Type": "application/json" };
     const requestBody = {
       contents: [
         {
           role: "user",
-          parts: [{ text: prompt }]
+          parts
         }
       ],
       systemInstruction: {
@@ -152,11 +155,11 @@ export class GeminiProvider implements AIProvider {
   }
 
   async generateImage(prompt: string): Promise<Buffer> {
-    const key = process.env.GEMINI_API_KEY || process.env.LOVABLE_API_KEY;
+    const key = this.config?.geminiApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("GEMINI_API_KEY environment variable is not defined");
 
     const isVertex = this.config?.geminiUseVertex ?? key.startsWith("AQ");
-    const model = this.config?.geminiImageModel || process.env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL;
+    const model = this.config?.geminiImageModel || process.env.GEMINI_IMAGE_MODEL || "imagen-3.0-generate-002";
 
     let url = "";
     if (isVertex) {
@@ -252,7 +255,7 @@ export class GeminiProvider implements AIProvider {
   }
 }
 
-// 2. OpenAI Provider (GPT-4o-mini + DALL-E-3)
+// 2. OpenAI Provider (GPT-4o-mini / GPT-4o + DALL-E-3)
 export class OpenAIProvider implements AIProvider {
   name = "openai";
   config?: AIProviderConfig;
@@ -261,21 +264,31 @@ export class OpenAIProvider implements AIProvider {
     this.config = config;
   }
 
-  async callLLM(prompt: string, systemPrompt: string): Promise<string> {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) throw new Error("OPENAI_API_KEY environment variable is not defined");
+  async callLLM(prompt: string, systemPrompt: string, imageUrl?: string): Promise<string> {
+    const key = this.config?.openaiApiKey || process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+    if (!key) throw new Error("OPENAI_API_KEY environment variable is not defined. Please set OPENAI_API_KEY in application settings or environment variables.");
 
-    const model = this.config?.openaiLlmModel || process.env.OPENAI_LLM_MODEL || process.env.OPENAI_LLM_MODEL;
+    const rawModel = this.config?.openaiLlmModel || process.env.OPENAI_LLM_MODEL || "gpt-4o-mini";
+    // Sanitize model name if non-standard string stored in DB
+    const model = (rawModel === "dall-e-3" || rawModel === "gpt-image-1") ? "gpt-4o-mini" : rawModel;
     const url = "https://api.openai.com/v1/chat/completions";
     const requestHeaders = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`
     };
+
+    const userContent: any = imageUrl 
+      ? [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: imageUrl } }
+        ]
+      : prompt;
+
     const requestBody = {
       model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: prompt }
+        { role: "user", content: userContent }
       ]
     };
 
@@ -335,10 +348,11 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async generateImage(prompt: string): Promise<Buffer> {
-    const key = process.env.OPENAI_API_KEY;
+    const key = this.config?.openaiApiKey || process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
     if (!key) throw new Error("OPENAI_API_KEY environment variable is not defined");
 
-    const model = this.config?.openaiImageModel || process.env.OPENAI_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL;
+    const rawModel = this.config?.openaiImageModel || process.env.OPENAI_IMAGE_MODEL || "dall-e-3";
+    const model = (rawModel === "gpt-4o" || rawModel === "gpt-4o-mini" || rawModel === "gpt-image-1") ? "dall-e-3" : rawModel;
     const size = this.config?.openaiImageSize || process.env.OPENAI_IMAGE_SIZE || "1024x1024";
     const url = "https://api.openai.com/v1/images/generations";
     const requestHeaders = {
@@ -446,7 +460,7 @@ export class ClaudeProvider implements AIProvider {
     return this.generateImage(prompt);
   }
   name = "claude";
-  async callLLM(prompt: string, systemPrompt: string): Promise<string> {
+  async callLLM(prompt: string, systemPrompt: string, imageUrl?: string): Promise<string> {
     throw new Error("Anthropic Claude Provider is not configured. Add ANTHROPIC_API_KEY to activate.");
   }
   async generateImage(prompt: string): Promise<Buffer> {
