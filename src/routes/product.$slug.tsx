@@ -166,7 +166,7 @@ function ProductPage() {
         await supabase.from("customer_activity").insert({
           user_id: profile.id,
           activity_type: "product_viewed",
-          metadata: { productId: product.id, name: product.name, category: product.category || "Uncategorized" }
+          metadata: { productId: product.id, name: product.name, category: (product as any).category || "Uncategorized" }
         });
       };
       void trackEvent();
@@ -192,7 +192,7 @@ function ProductPage() {
       const { data } = await supabase
         .from("products")
         .select("*")
-        .eq("publish_status", "published")
+        .eq("status" as any, "published")
         .neq("id", product.id)
         .limit(4);
       setRecommendations(data || []);
