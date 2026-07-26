@@ -16,7 +16,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           // 1. Fetch types
           const { data: types } = await supabase.from("product_types" as any).select("slug");
           if (types) {
-            for (const t of types) {
+            for (const t of (types as any[])) {
               urls.push(`${origin}/${t.slug}`);
             }
           }
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             .from("categories" as any)
             .select("slug, product_types(slug)");
           if (categories) {
-            for (const c of categories) {
+            for (const c of (categories as any[])) {
               const typeSlug = (c as any).product_types?.slug;
               if (typeSlug) {
                 urls.push(`${origin}/${typeSlug}/${c.slug}`);
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             .from("subcategories" as any)
             .select("slug, categories(slug, product_types(slug))");
           if (subcategories) {
-            for (const s of subcategories) {
+            for (const s of (subcategories as any[])) {
               const cat = (s as any).categories;
               const catSlug = cat?.slug;
               const typeSlug = cat?.product_types?.slug;
@@ -63,7 +63,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             const catMap = new Map(allCats?.map((c: any) => [c.id, c]));
             const subMap = new Map(allSubs?.map((s: any) => [s.id, s]));
 
-            for (const f of families) {
+            for (const f of (families as any[])) {
               if (f.subcategory_id && subMap.has(f.subcategory_id)) {
                 const sub = subMap.get(f.subcategory_id);
                 const subSlug = sub?.slug;
@@ -93,7 +93,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             .is("deleted_at", null);
 
           if (products) {
-            for (const p of products) {
+            for (const p of (products as any[])) {
               urls.push(`${origin}/product/${p.slug}`);
             }
           }
