@@ -1,15 +1,16 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useState, useMemo } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Sparkles, Trash2, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
-import { runProductPipeline } from "@/lib/ai-pipeline.functions";
-import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
+import { ArrowLeft, Sparkles, Upload, FileText, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck, Check } from "lucide-react";
 import { runProductDetailsEngine } from "@/lib/product-details.functions";
+import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
+import { runProductPipeline } from "@/lib/ai-pipeline.functions";
 import { ImageUploader, ImageTile, publicImageUrl } from "@/components/ImageUploader";
 
 export const Route = createFileRoute("/_authenticated/admin/products/$id")({
+  head: () => ({ meta: [{ title: "Edit Product — Admin Panel" }] }),
   component: RebuiltEditProductPage,
 });
 
@@ -22,19 +23,23 @@ function RebuiltEditProductPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
 
-  const [p, setP] = useState<any>(null);
-  const [types, setTypes] = useState<(Tax & { code_prefix?: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [generatingDetails, setGeneratingDetails] = useState(false);
+  const [generatingLifestyle, setGeneratingLifestyle] = useState(false);
+  const [runningPipeline, setRunningPipeline] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Taxonomy options
+  const [types, setTypes] = useState<Tax[]>([]);
   const [cats, setCats] = useState<Cat[]>([]);
   const [subs, setSubs] = useState<Sub[]>([]);
   const [fams, setFams] = useState<Fam[]>([]);
 
-  const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  const [generatingDetails, setGeneratingDetails] = useState(false);
-  const [generatingLifestyle, setGeneratingLifestyle] = useState(false);
-  const [runningPipeline, setRunningPipeline] = useState(false);
+  // Product Record Form State
+  const [p, setP] = useState<any>(null);
 
-  // Collapsible section toggles (Default Collapsed)
+  // Section Toggles
   const [showAdvancedAi, setShowAdvancedAi] = useState(false);
   const [showSeoSection, setShowSeoSection] = useState(false);
   const [showSearchSection, setShowSearchSection] = useState(false);
@@ -43,47 +48,47 @@ function RebuiltEditProductPage() {
   const generateLifestyleFn = useServerFn(generateStandaloneLifestyleImage);
   const runPipelineFn = useServerFn(runProductPipeline);
 
-  const load = useCallback(async () => {
-    const { data, error } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
-    if (error) return toast.error(error.message);
-    if (!data) return toast.error("Product not found");
-    setP(data);
-  }, [id]);
+  const load = async () => {
+    setLoading(true);
+    const [t, c, s, f, prod] = await Promise.all([
+      supabase.from("product_types").select("id,name").order("name"),
+      supabase.from("categories").select("id,name,type_id").order("name"),
+      supabase.from("subcategories").select("id,name,category_id").order("name"),
+      supabase.from("family_groups").select("id,name,subcategory_id").order("name"),
+      supabase.from("products").select("*").eq("id", id).single(),
+    ]);
+
+    setTypes(t.data ?? []);
+    setCats((c.data ?? []) as any);
+    setSubs((s.data ?? []) as any);
+    setFams((f.data ?? []) as any);
+
+    if (prod.error || !prod.data) {
+      toast.error("Product not found");
+      navigate({ to: "/admin/products" });
+      return;
+    }
+
+    setP(prod.data);
+    setLoading(false);
+  };
 
   useEffect(() => {
     load();
-    (async () => {
-      const [t, c, s, f] = await Promise.all([
-        supabase.from("product_types").select("id,name").order("name"),
-        supabase.from("categories").select("id,name,type_id").order("name"),
-        supabase.from("subcategories").select("id,name,category_id").order("name"),
-        supabase.from("family_groups").select("id,name,subcategory_id").order("name"),
-      ]);
-      setTypes((t.data ?? []) as any);
-      setCats((c.data ?? []) as any);
-      setSubs((s.data ?? []) as any);
-      setFams((f.data ?? []) as any);
-    })();
-  }, [id, load]);
+  }, [id]);
 
   const filteredCats = useMemo(() => cats.filter((c) => c.type_id === p?.type_id), [cats, p?.type_id]);
   const filteredSubs = useMemo(() => subs.filter((s) => s.category_id === p?.category_id), [subs, p?.category_id]);
   const filteredFams = useMemo(() => fams.filter((f) => f.subcategory_id === p?.subcategory_id), [fams, p?.subcategory_id]);
 
-  if (!p) return <div className="container-app py-10 text-sm text-muted-foreground font-mono">Loading product data…</div>;
-
-  const setField = (key: string, value: any) => {
+  const setField = (key: string, val: any) => {
     setP((prev: any) => {
-      const next = { ...prev, [key]: value };
+      const next = { ...prev, [key]: val };
       // CRITICAL SYNC RULE: Product Description = SEO Description
-      if (key === "short_description" || key === "generated_description") {
-        next.short_description = value;
-        next.generated_description = value;
-        next.seo_description = value;
-      } else if (key === "seo_description") {
-        next.seo_description = value;
-        next.short_description = value;
-        next.generated_description = value;
+      if (key === "seo_description" || key === "generated_description" || key === "short_description") {
+        next.generated_description = val;
+        next.short_description = val;
+        next.seo_description = val;
       }
       return next;
     });
@@ -184,6 +189,14 @@ function RebuiltEditProductPage() {
   const arrToStr = (v: any) => (Array.isArray(v) ? v.join(", ") : v ?? "");
   const strToArr = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
 
+  if (loading || !p) {
+    return (
+      <div className="container-app py-12 text-center text-xs text-muted-foreground font-mono">
+        Loading product data for ID: {id}…
+      </div>
+    );
+  }
+
   return (
     <div className="container-app py-6 max-w-5xl space-y-6">
       {/* Header Navigation & Controls */}
@@ -233,7 +246,8 @@ function RebuiltEditProductPage() {
             <select
               value={p.category_id || ""}
               onChange={(e) => setField("category_id", e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
+              disabled={!p.type_id}
+              className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs disabled:opacity-50"
             >
               <option value="">Select Category…</option>
               {filteredCats.map((c) => (
@@ -246,7 +260,8 @@ function RebuiltEditProductPage() {
             <select
               value={p.subcategory_id || ""}
               onChange={(e) => setField("subcategory_id", e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
+              disabled={!p.category_id}
+              className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs disabled:opacity-50"
             >
               <option value="">Select Subcategory…</option>
               {filteredSubs.map((s) => (
@@ -259,7 +274,8 @@ function RebuiltEditProductPage() {
             <select
               value={p.family_id || ""}
               onChange={(e) => setField("family_id", e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
+              disabled={!p.subcategory_id}
+              className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs disabled:opacity-50"
             >
               <option value="">Select Family…</option>
               {filteredFams.map((f) => (
@@ -269,7 +285,7 @@ function RebuiltEditProductPage() {
           </div>
         </div>
 
-        {/* Product Fields */}
+        {/* Essential Fields */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="sm:col-span-2">
             <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Product Name *</label>
@@ -305,7 +321,7 @@ function RebuiltEditProductPage() {
             <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Price (NGN) *</label>
             <input
               type="number"
-              value={p.price || 0}
+              value={p.price ?? 0}
               onChange={(e) => setField("price", e.target.value)}
               className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
             />
@@ -408,30 +424,32 @@ function RebuiltEditProductPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <select
-              value={p.status || "published"}
-              onChange={(e) => setField("status", e.target.value)}
-              className="rounded-md border border-input bg-background p-2 text-xs font-semibold"
+            <button
+              type="button"
+              onClick={() => setField("status", p.status === "published" ? "draft" : "published")}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${p.status === "published" ? "bg-primary" : "bg-muted"}`}
             >
-              <option value="published">Status: Published</option>
-              <option value="draft">Status: Draft</option>
-              <option value="review">Status: Review</option>
-              <option value="archived">Status: Archived</option>
-            </select>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${p.status === "published" ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+            <span className="text-xs font-semibold text-foreground">
+              {p.status === "published" ? "Status: Published" : "Status: Draft"}
+            </span>
           </div>
 
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="rounded bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm"
-          >
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm"
+            >
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* SECTION 4: Advanced AI (Collapsed by default) */}
+      {/* SECTION 4: Advanced AI Operations (Collapsed by default) */}
       <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button
           type="button"
@@ -480,17 +498,14 @@ function RebuiltEditProductPage() {
               </button>
             </div>
 
-            {/* AI Status & Log */}
             <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-2 font-mono text-muted-foreground">
               <div className="flex items-center justify-between text-foreground font-semibold">
-                <span>AI State: {p.processing_state || "completed"}</span>
-                <span className="text-[10px] text-primary">{p.last_processed_at ? new Date(p.last_processed_at).toLocaleString() : "Never"}</span>
+                <span>AI Execution Tracking</span>
+                <span className="text-[10px] text-primary uppercase">{p.processing_state || "Completed"}</span>
               </div>
-              {p.error_log ? (
-                <p className="text-[11px] text-destructive">{typeof p.error_log === "object" ? JSON.stringify(p.error_log) : p.error_log}</p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">Product details engine synced. Ready for publishing.</p>
-              )}
+              <p className="text-[11px] text-muted-foreground">
+                Last processed: {p.last_processed_at ? new Date(p.last_processed_at).toLocaleString() : "Not processed yet"}
+              </p>
             </div>
           </div>
         )}
@@ -556,27 +571,6 @@ function RebuiltEditProductPage() {
                 />
               </div>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border/50">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Open Graph Title</label>
-                <input
-                  type="text"
-                  value={p.og_title || ""}
-                  onChange={(e) => setField("og_title", e.target.value)}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Twitter Card Type</label>
-                <input
-                  type="text"
-                  value={p.twitter_card || "summary_large_image"}
-                  onChange={(e) => setField("twitter_card", e.target.value)}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono"
-                />
-              </div>
-            </div>
           </div>
         )}
       </section>
@@ -600,11 +594,15 @@ function RebuiltEditProductPage() {
           <div className="p-5 border-t border-border space-y-4 bg-muted/10">
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Keywords (App Keywords)</label>
-              <textarea
-                rows={2}
+              <input
+                type="text"
                 value={arrToStr(p.app_keywords || p.app_search_keywords)}
-                onChange={(e) => setField("app_keywords", strToArr(e.target.value))}
-                className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono"
+                onChange={(e) => {
+                  const arr = strToArr(e.target.value);
+                  setField("app_keywords", arr);
+                  setField("app_search_keywords", arr);
+                }}
+                className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
               />
             </div>
           </div>
