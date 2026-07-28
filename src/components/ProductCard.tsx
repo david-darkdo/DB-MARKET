@@ -3,10 +3,8 @@ import type { ProductRow } from "@/lib/catalog";
 import { AddToCollectionButton } from "./AddToCollectionButton";
 import { publicImageUrl } from "./ImageUploader";
 import { Heart } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { toast } from "sonner";
+import { useMemo } from "react";
+import { useFavorites } from "@/hooks/useFavorites";
 
 export function ProductCardSkeleton() {
   return (
@@ -41,36 +39,13 @@ export function ProductCardSkeleton() {
 }
 
 export function ProductCard({ product }: { product: ProductRow }) {
-  const { user } = useAuth();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const isFav = isFavorite(product.id);
 
   const img =
     publicImageUrl(product.generated_studio_image) ||
     publicImageUrl(product.image_url) ||
     "https://placehold.co/600x600/eee/aaa?text=No+Image";
-
-  // Check if item is favorited on load
-  useEffect(() => {
-    if (!user?.id) return;
-    const checkFavorite = async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle();
-      if (!profile?.id) return;
-
-      const { data } = await supabase
-        .from("favorites")
-        .select("product_id")
-        .eq("user_id", profile.id)
-        .eq("product_id", product.id)
-        .maybeSingle();
-      if (data) setIsFavorite(true);
-    };
-    void checkFavorite();
-  }, [user?.id, product.id]);
 
   // Determine if product is recently published (newer than 7 days)
   const isNew = useMemo(() => {
@@ -82,47 +57,10 @@ export function ProductCard({ product }: { product: ProductRow }) {
     return diffDays <= 7;
   }, [(product as any).created_at]);
 
-  const toggleFavorite = async (e: React.MouseEvent) => {
+  const handleToggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user?.id) {
-      toast.error("Please login to save favorites.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle();
-      if (!profile?.id) throw new Error("User profile not found");
-
-      if (isFavorite) {
-        const { error } = await supabase
-          .from("favorites")
-          .delete()
-          .eq("user_id", profile.id)
-          .eq("product_id", product.id);
-        if (error) throw error;
-        setIsFavorite(false);
-        toast.success("Removed from favorites");
-      } else {
-        const { error } = await supabase
-          .from("favorites")
-          .insert({
-            user_id: profile.id,
-            product_id: product.id
-          });
-        if (error) throw error;
-        setIsFavorite(true);
-        toast.success("Added to favorites");
-      }
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
+    void toggleFavorite(product.id, product);
   };
 
   return (
@@ -135,15 +73,13 @@ export function ProductCard({ product }: { product: ProductRow }) {
       )}
 
       {/* Floating Favorite Heart Icon */}
-      {user && (
-        <button
-          onClick={toggleFavorite}
-          disabled={loading}
-          className="absolute top-2.5 right-2.5 z-10 rounded-full p-2 bg-background/85 hover:bg-background text-foreground transition shadow border border-border/80 focus:outline-none"
-        >
-          <Heart className={`h-3.5 w-3.5 transition-colors duration-300 text-red-500 hover:text-red-600 ${isFavorite ? "fill-red-500" : ""}`} />
-        </button>
-      )}
+      <button
+        onClick={handleToggleFavorite}
+        className="absolute top-2.5 right-2.5 z-10 rounded-full p-2 bg-background/85 hover:bg-background text-foreground transition shadow border border-border/80 focus:outline-none"
+        aria-label={isFav ? "Remove from favorites" : "Save to favorites"}
+      >
+        <Heart className={`h-3.5 w-3.5 transition-colors duration-300 text-red-500 hover:text-red-600 ${isFav ? "fill-red-500 text-red-500" : ""}`} />
+      </button>
 
       <Link
         to="/product/$slug"
