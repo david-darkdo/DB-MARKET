@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { useInfiniteQuery, useSuspenseQuery, queryOptions, infiniteQueryOptions } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard";
-import { fetchFeedProducts, fetchTaxonomy, type FeedFilters } from "@/lib/catalog";
+import { fetchFeedProductsPaginated, fetchTaxonomy, type FeedFilters, type CursorParam } from "@/lib/catalog";
+import { Sparkles, ChevronDown, Loader2 } from "lucide-react";
 
 type FeedSearch = {
   type?: string;
@@ -24,10 +26,12 @@ const taxonomyQuery = queryOptions({
   staleTime: 5 * 60_000,
 });
 
-const feedQuery = (f: FeedFilters) =>
-  queryOptions({
-    queryKey: ["feed", f],
-    queryFn: () => fetchFeedProducts(f),
+const feedInfiniteQuery = (f: FeedFilters) =>
+  infiniteQueryOptions({
+    queryKey: ["feed_infinite", f],
+    queryFn: ({ pageParam }) => fetchFeedProductsPaginated(f, pageParam as CursorParam | null, 24),
+    initialPageParam: null as CursorParam | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
 export const Route = createFileRoute("/")({
@@ -35,30 +39,22 @@ export const Route = createFileRoute("/")({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
     context.queryClient.ensureQueryData(taxonomyQuery);
-    context.queryClient.ensureQueryData(feedQuery(deps));
+    context.queryClient.ensureInfiniteQueryData(feedInfiniteQuery(deps));
   },
   head: () => ({
     meta: [
-      { title: "Discover — Stoneworks" },
+      { title: "Discover — Enreach Building Materials Showroom" },
       {
         name: "description",
-        content: "Browse curated tiles, doors, plumbing and finishes.",
+        content: "Browse curated tiles, security doors, plumbing and custom architectural finishes.",
       },
     ],
   }),
   component: FeedPage,
   errorComponent: ({ error }) => {
-    const rawUrl = typeof process !== "undefined" ? process.env.SUPABASE_URL : "no process";
-    const rawKey = typeof process !== "undefined" ? process.env.SUPABASE_PUBLISHABLE_KEY : "no process";
-    const viteUrl = import.meta.env.VITE_SUPABASE_URL || "no viteUrl";
     return (
       <div className="p-6 text-sm text-destructive font-mono">
         <div>Error: {error.message}</div>
-        <div className="mt-4 text-xs text-muted-foreground border-t border-destructive/20 pt-4">
-          <div>process.env.SUPABASE_URL: {rawUrl}</div>
-          <div>process.env.SUPABASE_PUBLISHABLE_KEY: {rawKey ? rawKey.substring(0, 15) + "..." : "none"}</div>
-          <div>VITE_SUPABASE_URL: {viteUrl}</div>
-        </div>
       </div>
     );
   },
@@ -68,7 +64,9 @@ function FeedPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { data: tax } = useSuspenseQuery(taxonomyQuery);
-  const products = useQuery(feedQuery(search));
+  const feedQuery = useInfiniteQuery(feedInfiniteQuery(search));
+
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const activeType = tax.types.find((t) => t.slug === search.type);
   const categoriesForType = activeType
@@ -90,9 +88,32 @@ function FeedPage() {
   const setSub = (slug?: string) =>
     navigate({ to: "/", search: { ...search, subcategory: slug } });
 
+  const allProducts = feedQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const totalCount = feedQuery.data?.pages[0]?.totalCount ?? 0;
+  const hasNextPage = feedQuery.hasNextPage;
+  const isFetchingNextPage = feedQuery.isFetchingNextPage;
+
+  // IntersectionObserver for Automatic Infinite Scroll
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          void feedQuery.fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    const el = loadMoreRef.current;
+    if (el) observer.observe(el);
+    return () => {
+      if (el) observer.unobserve(el);
+    };
+  }, [hasNextPage, isFetchingNextPage, feedQuery]);
+
   return (
     <AppShell>
-      <div className="container-app pt-4">
+      <div className="container-app pt-4 pb-12 space-y-4">
         {/* Type row */}
         <FilterRow>
           <Pill active={!search.type} onClick={() => setType(undefined)}>
@@ -141,41 +162,73 @@ function FeedPage() {
           </FilterRow>
         )}
 
-        <div className="mt-5">
-          <h1 className="font-display text-xs uppercase tracking-[0.18em] text-accent">
-            {activeSub
-              ? `${activeCategory?.name} · ${activeSub.name}`
-              : activeCategory
-                ? activeCategory.name
-                : activeType
-                  ? activeType.name
-                  : "All Materials"}
-          </h1>
-          <p className="mt-1 font-display text-2xl font-semibold tracking-tight text-foreground">
-            Discover the catalogue
-          </p>
+        <div className="mt-5 flex items-end justify-between border-b border-border pb-3">
+          <div>
+            <h1 className="font-display text-xs uppercase tracking-[0.18em] text-accent">
+              {activeSub
+                ? `${activeCategory?.name} · ${activeSub.name}`
+                : activeCategory
+                  ? activeCategory.name
+                  : activeType
+                    ? activeType.name
+                    : "Curated Showroom Feed"}
+            </h1>
+            <p className="mt-1 font-display text-2xl font-semibold tracking-tight text-foreground">
+              Discover the catalogue
+            </p>
+          </div>
+          {totalCount > 0 && (
+            <span className="text-xs font-mono text-muted-foreground">
+              Showing {allProducts.length} of {totalCount} products
+            </span>
+          )}
         </div>
 
+        {/* Product Grid */}
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {products.isLoading
+          {feedQuery.isLoading
             ? Array.from({ length: 8 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))
-            : (products.data ?? []).map((p) => <ProductCard key={p.id} product={p} />)}
+            : allProducts.map((p) => <ProductCard key={p.id} product={p} />)}
         </div>
 
-        {!products.isLoading && (products.data ?? []).length === 0 && (
-          <div className="mt-10 rounded-xl border border-dashed border-border p-10 text-center">
+        {/* Empty state */}
+        {!feedQuery.isLoading && allProducts.length === 0 && (
+          <div className="mt-10 rounded-xl border border-dashed border-border p-10 text-center bg-card/40">
             <p className="text-sm text-muted-foreground">
               No products match these filters yet.
             </p>
             <Link
               to="/"
               search={{}}
-              className="mt-3 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+              className="mt-3 inline-block text-xs font-semibold text-primary hover:underline"
             >
               Reset filters
             </Link>
+          </div>
+        )}
+
+        {/* Infinite Scroll / Load More Trigger */}
+        {hasNextPage && (
+          <div ref={loadMoreRef} className="pt-8 text-center space-y-3">
+            <button
+              onClick={() => void feedQuery.fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground hover:border-primary hover:text-primary transition shadow-xs disabled:opacity-50"
+            >
+              {isFetchingNextPage ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  Loading more products…
+                </>
+              ) : (
+                <>
+                  Load More Products ({totalCount - allProducts.length} remaining)
+                  <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>
@@ -192,7 +245,7 @@ function FilterRow({
 }) {
   return (
     <div
-      className={`-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-1 ${
+      className={`-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none ${
         tone === "muted" ? "opacity-95" : ""
       }`}
     >
