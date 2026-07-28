@@ -3,17 +3,20 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     try {
       const { data, error } = await supabase.auth.getUser();
-      if (error || !data.user) {
+      // Allow guest users to access the /favorites route
+      if ((error || !data.user) && location.pathname !== "/favorites") {
         throw redirect({ to: "/auth" });
       }
-      return { user: data.user };
+      return { user: data.user || null };
     } catch (err) {
-      // Safe Mode: any unexpected failure → redirect to sign-in instead of crashing.
       if (err && typeof err === "object" && "to" in (err as Record<string, unknown>)) {
         throw err;
+      }
+      if (location.pathname === "/favorites") {
+        return { user: null };
       }
       throw redirect({ to: "/auth" });
     }
