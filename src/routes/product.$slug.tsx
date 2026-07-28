@@ -8,6 +8,7 @@ import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { publicImageUrl } from "@/components/ImageUploader";
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useFavorites } from "@/hooks/useFavorites";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -103,31 +104,6 @@ export const Route = createFileRoute("/product/$slug")({
   ),
 });
 
-function ProductDetailSkeleton() {
-  return (
-    <AppShell>
-      <div className="container-app py-8 space-y-6 animate-pulse">
-        {/* Breadcrumb skeleton */}
-        <div className="h-3 w-48 bg-muted rounded"></div>
-
-        {/* Gallery skeleton */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="aspect-square w-full bg-muted rounded-2xl"></div>
-          <div className="aspect-[4/3] w-full bg-muted rounded-2xl"></div>
-        </div>
-
-        {/* Details skeleton */}
-        <div className="space-y-3">
-          <div className="h-3.5 w-32 bg-muted rounded"></div>
-          <div className="h-8 w-80 bg-muted rounded"></div>
-          <div className="h-6 w-24 bg-muted rounded"></div>
-          <div className="h-20 w-full bg-muted rounded"></div>
-        </div>
-      </div>
-    </AppShell>
-  );
-}
-
 function ProductPage() {
   const { product, origin, taxonomy } = Route.useLoaderData();
   const { data: related = [] } = useSuspenseQuery(
@@ -135,7 +111,8 @@ function ProductPage() {
   );
 
   const { user } = useAuth();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const isFav = isFavorite(product.id);
   const [recommendations, setRecommendations] = useState<any[]>([]);
 
   // Gallery slider states
@@ -170,21 +147,6 @@ function ProductPage() {
         });
       };
       void trackEvent();
-
-      // Check favorite status
-      supabase.from("profiles")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle()
-        .then(({ data: profile }) => {
-          if (!profile?.id) return;
-          supabase.from("favorites")
-            .select("*")
-            .eq("user_id", profile.id)
-            .eq("product_id", product.id)
-            .maybeSingle()
-            .then(({ data }) => setIsFavorite(!!data));
-        });
     }
 
     // Load recommendations
@@ -200,123 +162,110 @@ function ProductPage() {
     void loadRecs();
   }, [product?.id, user?.id]);
 
-  const toggleFavorite = async () => {
-    if (!user?.id) {
-      toast.error("Please sign in to save favorites");
-      return;
-    }
-    try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle();
-      if (!profile?.id) throw new Error("User profile not found");
-
-      if (isFavorite) {
-        const { error } = await supabase.from("favorites").delete().eq("user_id", profile.id).eq("product_id", product.id);
-        if (error) throw error;
-        setIsFavorite(false);
-        toast.success("Removed from favorites");
-      } else {
-        const { error } = await supabase.from("favorites").insert({ user_id: profile.id, product_id: product.id });
-        if (error) throw error;
-        setIsFavorite(true);
-        toast.success("Saved to favorites");
-        // Log event to event bus
-        await supabase.from("customer_activity").insert({
-          user_id: profile.id,
-          activity_type: "favorites_changed",
-          metadata: { productId: product.id, name: product.name, action: "added" }
-        });
-      }
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+  const handleToggleFavorite = () => {
+    void toggleFavorite(product.id, product);
   };
 
   // Breadcrumbs config
   const breadcrumbs = useMemo(() => {
     const list = [{ label: "Home", path: "/" }];
-    if (taxonomy.type) {
+    if (taxonomy.type?.name) {
       list.push({ label: taxonomy.type.name, path: `/${taxonomy.type.slug}` });
-      if (taxonomy.category) {
-        list.push({ label: taxonomy.category.name, path: `/${taxonomy.type.slug}/${taxonomy.category.slug}` });
-        if (taxonomy.subcategory) {
-          list.push({ label: taxonomy.subcategory.name, path: `/${taxonomy.type.slug}/${taxonomy.category.slug}/${taxonomy.subcategory.slug}` });
-          if (taxonomy.family) {
-            list.push({ label: taxonomy.family.name, path: `/${taxonomy.type.slug}/${taxonomy.category.slug}/${taxonomy.subcategory.slug}/${taxonomy.family.slug}` });
-          }
-        }
-      }
+    }
+    if (taxonomy.category?.name) {
+      list.push({ label: taxonomy.category.name, path: taxonomy.type?.slug ? `/${taxonomy.type.slug}/${taxonomy.category.slug}` : `/${taxonomy.category.slug}` });
+    }
+    if (taxonomy.subcategory?.name) {
+      list.push({ label: taxonomy.subcategory.name, path: `/${taxonomy.type?.slug || "all"}/${taxonomy.category?.slug || "category"}/${taxonomy.subcategory.slug}` });
     }
     list.push({ label: product.name, path: `/product/${product.slug}` });
     return list;
   }, [taxonomy, product]);
 
-  const breadcrumbSchema = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": breadcrumbs.map((b, i) => ({
-      "@type": "ListItem",
-      "position": i + 1,
-      "name": b.label,
-      "item": b.path.startsWith("/") ? `${origin}${b.path}` : b.path
-    }))
-  };
-
+  // Structured Data (JSON-LD)
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": product.name,
-    "image": galleryImages,
-    "description": product.generated_description || product.short_description || "",
-    "sku": product.code,
-    "mpn": product.code,
-    "brand": {
+    name: product.name,
+    image: galleryImages,
+    description: product.short_description || product.seo_description || "Premium architectural building material.",
+    sku: product.code,
+    mpn: product.code,
+    brand: {
       "@type": "Brand",
-      "name": product.brand || "Enreach Concepts"
+      name: product.brand || "Enreach Concepts",
     },
-    "category": taxonomy.subcategory?.name ? `${taxonomy.category?.name || "Material"} > ${taxonomy.subcategory.name}` : (taxonomy.category?.name || "Material"),
-    "offers": {
+    offers: {
       "@type": "Offer",
-      "url": `${origin}/product/${product.slug}`,
-      "priceCurrency": "NGN",
-      "price": product.price,
-      "availability": "https://schema.org/InStock",
-      "itemCondition": "https://schema.org/NewCondition"
-    }
+      url: `${origin}/product/${product.slug}`,
+      priceCurrency: "NGN",
+      price: product.price,
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
   };
 
-  const faqSchema = product.faq && Array.isArray(product.faq) ? {
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbs.map((b, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      name: b.label,
+      item: `${origin}${b.path}`,
+    })),
+  };
+
+  const faqSchema = product.faq && Array.isArray(product.faq) && (product.faq as any[]).length > 0 ? {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": (product.faq as any[]).map((f) => ({
+    mainEntity: (product.faq as any[]).map((f) => ({
       "@type": "Question",
-      "name": f.question || f.q || "",
-      "acceptedAnswer": {
+      name: f.question || f.q,
+      acceptedAnswer: {
         "@type": "Answer",
-        "text": f.answer || f.a || ""
-      }
-    }))
+        text: f.answer || f.a,
+      },
+    })),
   } : null;
-
-  const handleLightboxNav = (dir: "prev" | "next") => {
-    const idx = galleryImages.indexOf(lightboxImg || "");
-    if (idx === -1) return;
-    if (dir === "prev") {
-      const nextIdx = (idx - 1 + galleryImages.length) % galleryImages.length;
-      setLightboxImg(galleryImages[nextIdx]);
-    } else {
-      const nextIdx = (idx + 1) % galleryImages.length;
-      setLightboxImg(galleryImages[nextIdx]);
-    }
-    setLightboxScale(1); // Reset zoom scale
-  };
 
   return (
     <AppShell>
-      {/* Schema LD Injections */}
+      {/* Lightbox Modal */}
+      {lightboxImg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md">
+          <div className="absolute top-4 right-4 z-50 flex gap-2">
+            <button
+              onClick={() => setLightboxScale((s) => Math.min(s + 0.5, 3))}
+              className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            >
+              <ZoomIn className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setLightboxScale((s) => Math.max(s - 0.5, 1))}
+              className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            >
+              <ZoomOut className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => { setLightboxImg(null); setLightboxScale(1); }}
+              className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="overflow-auto max-h-full max-w-full flex items-center justify-center">
+            <img
+              src={lightboxImg}
+              alt="Fullscreen View"
+              style={{ transform: `scale(${lightboxScale})` }}
+              className="transition-transform duration-200 max-h-[85vh] max-w-[85vw] object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* JSON-LD Structured Data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
       {faqSchema && (
@@ -358,45 +307,34 @@ function ProductPage() {
           </div>
 
           {/* Installed Lifestyle Reference - Full Frame Cover */}
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between aspect-square">
-            <div className="flex-1 overflow-hidden">
-              {installed ? (
-                <img
-                  src={installed}
-                  alt={`${product.name} installed scene`}
-                  loading="lazy"
-                  onClick={() => setLightboxImg(installed)}
-                  className="w-full h-full object-cover cursor-zoom-in hover:scale-[1.01] transition-transform duration-300"
-                />
-              ) : (
-                <div className="text-xs text-muted-foreground italic flex h-full items-center justify-center bg-muted/20">No installed preview uploaded</div>
-              )}
+          {installed ? (
+            <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm aspect-square md:aspect-auto h-full flex flex-col justify-end p-6">
+              <img
+                src={installed}
+                alt={`${product.name} installed view`}
+                onClick={() => setLightboxImg(installed)}
+                className="absolute inset-0 w-full h-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+              <div className="relative z-10 text-white space-y-1">
+                <span className="inline-block px-2.5 py-0.5 rounded bg-primary/90 text-[9px] font-bold uppercase tracking-wider text-primary-foreground backdrop-blur">
+                  Installed Reference
+                </span>
+                <h4 className="font-display text-sm font-bold tracking-tight">Real-World Installation Preview</h4>
+                <p className="text-[10px] text-gray-200 line-clamp-2">
+                  Visualize this finish scaled inside modern luxury interiors and architectural projects.
+                </p>
+              </div>
             </div>
-            <div className="border-t border-border px-3.5 py-2 text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold bg-background shrink-0">
-              Installed reference / lifestyle layout
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border p-8 flex items-center justify-center text-xs text-muted-foreground">
+              No installed lifestyle preview uploaded yet.
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Thumbnail Selector Bar */}
-        {galleryImages.length > 1 && (
-          <div className="flex gap-2.5 mt-3 overflow-x-auto pb-1 scrollbar-none">
-            {galleryImages.map((imgUrl, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveImgIndex(i)}
-                className={`h-14 w-14 rounded-lg border overflow-hidden shrink-0 transition bg-card ${
-                  activeImgIndex === i ? "border-primary shadow-sm" : "border-border hover:border-primary/45"
-                }`}
-              >
-                <img src={imgUrl} alt="thumbnail" className="h-full w-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Product Details Section */}
-        <div className="mt-6 space-y-4">
+        {/* Product Info & Specs */}
+        <div className="mt-8 space-y-6">
           <div>
             <p className="text-xs font-mono uppercase tracking-[0.18em] text-primary font-bold">
               {product.brand || "Enreach Concepts"} · Code {product.code}
@@ -463,15 +401,15 @@ function ProductPage() {
               className="flex flex-1 items-center justify-center gap-2 rounded bg-primary px-5 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm"
             />
             <button
-              onClick={toggleFavorite}
+              onClick={handleToggleFavorite}
               className={`rounded px-5 py-3 border text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-2 ${
-                isFavorite
+                isFav
                   ? "bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
                   : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              <Heart className={`h-4 w-4 text-red-500 hover:text-red-600 ${isFavorite ? "fill-red-500" : ""}`} />
-              {isFavorite ? "Saved" : "Favorite"}
+              <Heart className={`h-4 w-4 text-red-500 hover:text-red-600 ${isFav ? "fill-red-500" : ""}`} />
+              {isFav ? "Saved" : "Favorite"}
             </button>
           </div>
         </div>
@@ -506,82 +444,6 @@ function ProductPage() {
           </section>
         )}
       </div>
-
-      {/* FULLSCREEN LIGHTBOX GALLERY MODAL */}
-      {lightboxImg && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 transition-all">
-          {/* Close Area */}
-          <div className="absolute inset-0" onClick={() => setLightboxImg(null)} />
-
-          {/* Image & Controls wrapper */}
-          <div className="relative z-10 flex flex-col items-center max-w-4xl max-h-[85vh] px-4">
-            <div className="overflow-hidden flex items-center justify-center bg-zinc-900 rounded-lg">
-              <img
-                src={lightboxImg}
-                alt="Fullscreen view"
-                style={{ transform: `scale(${lightboxScale})` }}
-                className="max-w-full max-h-[75vh] object-contain transition-transform duration-250 ease-out"
-              />
-            </div>
-
-            {/* Scale Indicator */}
-            {lightboxScale !== 1 && (
-              <span className="absolute bottom-20 bg-black/55 text-white text-[9px] px-2 py-0.5 rounded font-mono">
-                Zoom: {Math.round(lightboxScale * 100)}%
-              </span>
-            )}
-
-            {/* Slider / Controls Panel */}
-            <div className="mt-4 flex items-center justify-center gap-6 text-white bg-black/45 p-2 rounded-full border border-white/10">
-              <button
-                onClick={() => handleLightboxNav("prev")}
-                className="p-2 rounded-full hover:bg-white/15 transition"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setLightboxScale(s => Math.min(s + 0.25, 3))}
-                  className="p-1.5 rounded hover:bg-white/15 transition flex items-center gap-1 text-[10px] font-semibold"
-                >
-                  <ZoomIn className="h-4 w-4" /> Zoom In
-                </button>
-                <button
-                  onClick={() => setLightboxScale(s => Math.max(s - 0.25, 0.75))}
-                  className="p-1.5 rounded hover:bg-white/15 transition flex items-center gap-1 text-[10px] font-semibold"
-                >
-                  <ZoomOut className="h-4 w-4" /> Zoom Out
-                </button>
-                <button
-                  onClick={() => setLightboxScale(1)}
-                  className="p-1.5 rounded hover:bg-white/15 transition text-[10px] font-semibold"
-                >
-                  Reset
-                </button>
-              </div>
-
-              <button
-                onClick={() => handleLightboxNav("next")}
-                className="p-2 rounded-full hover:bg-white/15 transition"
-                aria-label="Next image"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Close button top right */}
-          <button
-            onClick={() => setLightboxImg(null)}
-            className="absolute top-4 right-4 z-20 rounded-full p-2 bg-white/15 text-white hover:bg-white/25 transition"
-            aria-label="Close fullscreen gallery"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
     </AppShell>
   );
 }
