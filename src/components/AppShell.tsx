@@ -15,8 +15,6 @@ import {
   CreditCard,
   Headphones,
   HelpCircle,
-  Sparkles,
-  ChevronRight
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,13 +70,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground selection:bg-primary selection:text-white">
+    <div className="flex min-h-screen flex-col bg-[#0D0D0D] text-white selection:bg-[#0D47FF] selection:text-white">
       <TopBar />
-      <main className="flex-1 pb-28 md:pb-16">{children}</main>
+      <main className="flex-1 pb-24 md:pb-16">{children}</main>
 
       {/* Seamless Marquee Trust Ticker Belt */}
       {trustFeatures.length > 0 && (
-        <section className="fixed bottom-12 md:bottom-0 left-0 right-0 z-20 border-t border-border bg-[#0D0D0D]/95 py-2.5 shadow-2xl overflow-hidden backdrop-blur-md select-none">
+        <section className="fixed bottom-12 md:bottom-0 left-0 right-0 z-20 border-t border-[#2A2A2A] bg-[#0D0D0D]/95 py-2 shadow-2xl overflow-hidden backdrop-blur-md select-none">
           <style>{`
             @keyframes marquee {
               0% { transform: translateX(0); }
@@ -91,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
           `}</style>
           
-          <div className="animate-marquee flex items-center gap-16 px-4">
+          <div className="animate-marquee flex items-center gap-14 px-4">
             {trustFeatures.map((t) => {
               const IconComponent =
                 t.icon_name === "Shield" ? Shield :
@@ -99,14 +97,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 t.icon_name === "CreditCard" ? CreditCard :
                 t.icon_name === "Headphones" ? Headphones : HelpCircle;
               return (
-                <div key={`${t.id}-1`} className="flex gap-2.5 items-center shrink-0">
-                  <div className="rounded-full bg-primary/20 p-1.5 text-gold shrink-0">
-                    <IconComponent className="h-3.5 w-3.5" />
+                <div key={`${t.id}-1`} className="flex gap-2 items-center shrink-0">
+                  <div className="rounded-full bg-[#0D47FF]/20 p-1 text-[#FFC107] shrink-0">
+                    <IconComponent className="h-3 w-3" />
                   </div>
-                  <div className="min-w-0 flex items-baseline gap-2">
-                    <h4 className="font-bold text-[10px] text-gold tracking-widest uppercase">{t.title}</h4>
-                    <span className="text-[10px] text-border font-bold">|</span>
-                    <p className="text-[9.5px] text-muted-foreground whitespace-nowrap">{t.description}</p>
+                  <div className="min-w-0 flex items-baseline gap-1.5">
+                    <h4 className="font-bold text-[9.5px] text-[#FFC107] tracking-widest uppercase">{t.title}</h4>
+                    <span className="text-[9.5px] text-gray-700 font-bold">|</span>
+                    <p className="text-[9px] text-gray-400 whitespace-nowrap">{t.description}</p>
                   </div>
                 </div>
               );
@@ -119,14 +117,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 t.icon_name === "CreditCard" ? CreditCard :
                 t.icon_name === "Headphones" ? Headphones : HelpCircle;
               return (
-                <div key={`${t.id}-2`} className="flex gap-2.5 items-center shrink-0">
-                  <div className="rounded-full bg-primary/20 p-1.5 text-gold shrink-0">
-                    <IconComponent className="h-3.5 w-3.5" />
+                <div key={`${t.id}-2`} className="flex gap-2 items-center shrink-0">
+                  <div className="rounded-full bg-[#0D47FF]/20 p-1 text-[#FFC107] shrink-0">
+                    <IconComponent className="h-3 w-3" />
                   </div>
-                  <div className="min-w-0 flex items-baseline gap-2">
-                    <h4 className="font-bold text-[10px] text-gold tracking-widest uppercase">{t.title}</h4>
-                    <span className="text-[10px] text-border font-bold">|</span>
-                    <p className="text-[9.5px] text-muted-foreground whitespace-nowrap">{t.description}</p>
+                  <div className="min-w-0 flex items-baseline gap-1.5">
+                    <h4 className="font-bold text-[9.5px] text-[#FFC107] tracking-widest uppercase">{t.title}</h4>
+                    <span className="text-[9.5px] text-gray-700 font-bold">|</span>
+                    <p className="text-[9px] text-gray-400 whitespace-nowrap">{t.description}</p>
                   </div>
                 </div>
               );
@@ -218,23 +216,21 @@ function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-[#0D0D0D]/95 backdrop-blur-md">
-      <div className="container-app flex items-center gap-4 py-3">
-        <Link to="/" className="flex items-center gap-3 shrink-0 group">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[#0D47FF] to-[#0828A4] p-0.5 shadow-lg shadow-[#0D47FF]/20 group-hover:scale-105 transition-transform">
+    <header className="sticky top-0 z-40 border-b border-[#2A2A2A] bg-[#0D0D0D]/95 backdrop-blur-md">
+      <div className="container-app flex items-center justify-between gap-3 py-2.5">
+        <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-[#0D47FF] to-[#0828A4] p-0.5 shadow-md shadow-[#0D47FF]/20 group-hover:scale-105 transition-transform">
             <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#0D0D0D]">
-              <span className="font-display font-black text-lg tracking-tighter text-white">
-                D<span className="text-gold">B</span>
+              <span className="font-display font-black text-base tracking-tighter text-white">
+                D<span className="text-[#FFC107]">B</span>
               </span>
             </div>
           </div>
           <div className="flex flex-col">
-            <div className="flex items-baseline gap-1">
-              <span className="font-display text-lg font-black tracking-tight text-white group-hover:text-gold transition-colors">
-                DB MARKET
-              </span>
-            </div>
-            <span className="text-[8.5px] font-bold tracking-widest text-gold/90 uppercase">
+            <span className="font-display text-base font-black tracking-tight text-white group-hover:text-[#FFC107] transition-colors leading-none">
+              DB MARKET
+            </span>
+            <span className="text-[7.5px] font-bold tracking-widest text-[#FFC107] uppercase mt-0.5 leading-none">
               BUILDING NIGERIA. BUILDING TRUST.
             </span>
           </div>
@@ -247,27 +243,36 @@ function TopBar() {
             const q = String(data.get("q") || "").trim();
             navigate({ to: "/search", search: { q } });
           }}
-          className="relative flex-1 max-w-xl mx-auto"
+          className="hidden md:flex relative flex-1 max-w-md mx-auto"
         >
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gold/80" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#FFC107]" />
           <input
             name="q"
             defaultValue={search?.q ?? ""}
             placeholder="Search tiles, security doors, faucets, lighting..."
-            className="w-full rounded-full border border-border bg-[#141414] py-2.5 pl-10 pr-4 text-xs text-white placeholder:text-muted-foreground outline-none transition duration-300 focus:border-primary focus:bg-[#1A1A1A] focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-full border border-[#2A2A2A] bg-[#141414] py-2 pl-9 pr-4 text-xs text-white placeholder:text-gray-400 outline-none transition focus:border-[#0D47FF] focus:bg-[#1A1A1A]"
           />
         </form>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to="/search"
+            search={{ q: "" }}
+            aria-label="Search"
+            className="grid h-9 w-9 place-items-center rounded-full border border-[#2A2A2A] bg-[#1A1A1A] text-gray-300 hover:border-[#FFC107] hover:text-[#FFC107] transition"
+          >
+            <Search className="h-4 w-4" />
+          </Link>
+
           {user && (
             <div className="relative">
               <button
                 onClick={openNotifications}
-                className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-[#1A1A1A] text-foreground transition hover:border-gold hover:text-gold"
+                className="relative grid h-9 w-9 place-items-center rounded-full border border-[#2A2A2A] bg-[#1A1A1A] text-gray-300 transition hover:border-[#FFC107] hover:text-[#FFC107]"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[9px] font-black text-black shadow-md animate-pulse">
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FFC107] text-[8.5px] font-black text-black shadow-md animate-pulse">
                     {unreadCount}
                   </span>
                 )}
@@ -280,30 +285,30 @@ function TopBar() {
                     className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
                   />
                   
-                  <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[340px] rounded-xl border border-border bg-[#1A1A1A] shadow-2xl p-4 text-xs space-y-3 z-50 md:absolute md:top-auto md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 md:mt-2 md:w-80">
-                    <div className="flex items-center justify-between border-b border-border pb-2">
+                  <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[340px] rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] shadow-2xl p-4 text-xs space-y-3 z-50 md:absolute md:top-auto md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 md:mt-2 md:w-80">
+                    <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-2">
                       <span className="font-bold text-white text-xs">Notifications</span>
-                      <button onClick={() => setShowNotifications(false)} className="text-muted-foreground hover:text-white p-1 rounded-full"><X className="h-4 w-4" /></button>
+                      <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-white p-1 rounded-full"><X className="h-4 w-4" /></button>
                     </div>
 
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {notifications.map((notif) => (
-                        <div key={notif.id} className="p-2.5 border border-border rounded-lg bg-[#141414] flex gap-2.5 relative group text-left">
-                          <AlertCircle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+                        <div key={notif.id} className="p-2.5 border border-[#2A2A2A] rounded-lg bg-[#141414] flex gap-2.5 relative group text-left">
+                          <AlertCircle className="h-4 w-4 text-[#FFC107] shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold text-white truncate">{notif.subject || "Operational Update"}</div>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{notif.body}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{notif.body}</p>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); clearNotification(notif.id); }}
-                            className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition"
+                            className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       ))}
                       {notifications.length === 0 && (
-                        <div className="text-muted-foreground italic text-center py-4">No notifications yet.</div>
+                        <div className="text-gray-400 italic text-center py-4 text-xs">No notifications yet.</div>
                       )}
                     </div>
                   </div>
@@ -319,32 +324,32 @@ function TopBar() {
                 setShowNotifications(false);
               }}
               aria-label="Account menu"
-              className="grid h-10 w-10 place-items-center rounded-full border border-border bg-[#1A1A1A] hover:border-primary transition"
+              className="grid h-9 w-9 place-items-center rounded-full border border-[#2A2A2A] bg-[#1A1A1A] text-[#FFC107] hover:border-[#0D47FF] transition"
             >
-              <User className="h-4 w-4 text-gold" />
+              <User className="h-4 w-4" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-border bg-[#1A1A1A] py-2 shadow-2xl z-50 divide-y divide-border/50">
+              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] py-2 shadow-2xl z-50 divide-y divide-[#2A2A2A]">
                 <div className="px-4 py-2 text-xs">
                   <div className="font-bold text-white truncate">{user?.email || "Guest User"}</div>
-                  <div className="text-[9px] text-gold uppercase tracking-wider mt-0.5">DB Market Account</div>
+                  <div className="text-[9px] text-[#FFC107] uppercase tracking-wider mt-0.5 font-semibold">DB Market Account</div>
                 </div>
                 <div className="py-1">
                   <Link
                     to="/favorites"
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-foreground hover:bg-primary/20 hover:text-white transition"
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-gray-300 hover:bg-[#0D47FF]/20 hover:text-white transition"
                   >
-                    <Bookmark className="h-4 w-4 text-gold" />
+                    <Bookmark className="h-4 w-4 text-[#FFC107]" />
                     <span>My Favorites</span>
                   </Link>
                   {isAdmin && (
                     <Link
                       to="/admin"
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-gold font-bold hover:bg-gold/20 transition"
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#FFC107] font-bold hover:bg-[#FFC107]/20 transition"
                     >
-                      <Shield className="h-4 w-4 text-gold" />
+                      <Shield className="h-4 w-4 text-[#FFC107]" />
                       <span>Admin OS Center</span>
                     </Link>
                   )}
@@ -362,7 +367,7 @@ function TopBar() {
                     <Link
                       to="/auth"
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 transition"
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-[#0D47FF] hover:bg-[#0D47FF]/10 transition"
                     >
                       <User className="h-4 w-4" />
                       <span>Sign in / Register</span>
@@ -413,20 +418,20 @@ function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-[#0D0D0D]/95 py-2 backdrop-blur-md md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#2A2A2A] bg-[#0D0D0D]/95 py-2 backdrop-blur-md md:hidden">
       <div className="flex justify-around">
         {nav.map((t) => (
           <Link
             key={t.label}
             to={t.to}
             className={`flex flex-col items-center gap-1 text-[9.5px] font-bold tracking-wider uppercase transition ${
-              t.active ? "text-gold" : "text-muted-foreground hover:text-white"
+              t.active ? "text-[#FFC107]" : "text-gray-400 hover:text-white"
             }`}
           >
             <div className="relative">
-              <t.icon className={`h-5 w-5 ${t.active ? "text-gold" : ""}`} />
+              <t.icon className={`h-5 w-5 ${t.active ? "text-[#FFC107]" : ""}`} />
               {t.label === "Cart" && collectionCount > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[8.5px] font-black text-black shadow-md animate-cart-bounce">
+                <span className="absolute -top-1.5 -right-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#FFC107] text-[8.5px] font-black text-black shadow-md animate-cart-bounce">
                   {collectionCount}
                 </span>
               )}
