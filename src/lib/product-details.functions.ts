@@ -24,14 +24,12 @@ async function tryJSON<T = any>(
 }
 
 /**
- * ENGINE 1: PRODUCT DETAILS ENGINE (REBUILT PRODUCTION PIPELINE)
- * 
- * Generates structured product intelligence matching 100% of existing database columns.
- * Zero unmapped schema references. Zero runtime column errors.
+ * UNIVERSAL PRODUCT AI ENGINE (DB MARKET AI)
+ * Single intelligence engine powering all building material categories.
  */
 export const runProductDetailsEngine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { productId: string }) => {
+  .validator((data: { productId: string }) => {
     if (!data?.productId) throw new Error("productId required");
     return data;
   })
@@ -75,19 +73,19 @@ export const runProductDetailsEngine = createServerFn({ method: "POST" })
 
     const familyOverride = famRes.data?.custom_ai_prompt_override ?? null;
 
-    // 3. Load Active AI Prompt Template
+    // 3. Load Active Universal AI Prompt Template from Database by Key (Safe string lookup)
     const { data: activeTemplate } = await supabase
       .from("ai_prompt_templates")
       .select("prompt_text")
-      .or("key.eq.product_details,key.eq.understanding")
+      .eq("key", "product_details")
       .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    const templateText = activeTemplate?.prompt_text || `Analyze the product details:
-Product Name: {product_name}
-Code: {code}
+    const templateText = activeTemplate?.prompt_text || `You are DB Market AI, an expert architectural product intelligence engine.
+
+Product Metadata:
+Name: {product_name}
+Code/SKU: {code}
 Brand: {brand}
 Production Name: {production_name}
 Finish: {finish}
@@ -100,34 +98,44 @@ Category: {category}
 Subcategory: {subcategory}
 Family Group: {family}
 
-Output strict JSON with ONLY these keys:
-- generated_description (detailed product description)
-- seo_title (compelling SEO title, under 60 chars)
-- seo_description (identical to generated_description)
-- seo_keywords (array of high-intent search terms)
-- canonical_slug (url-friendly slug)
-- faq (array of {question, answer} objects)
-- structured_data (valid JSON-LD Product schema object)
-- search_keywords (array of search terms)
-- alternative_terms (array of alternative product names)
-- related_terms (array of complementary terms)
-- synonyms (array of synonyms)
-- misspellings (array of common customer typos)`;
+Output strict JSON with EXACTLY these 19 keys:
+{
+  "generated_description": "Detailed luxury product description",
+  "short_description": "Canonical short description for cards",
+  "seo_title": "SEO title under 60 chars",
+  "meta_description": "Compelling meta description",
+  "seo_keywords": ["keyword1", "keyword2"],
+  "canonical_slug": "url-friendly-slug",
+  "og_title": "Open Graph Title",
+  "og_description": "Open Graph Description",
+  "twitter_card": "summary_large_image",
+  "faq": [{"question": "Q1", "answer": "A1"}],
+  "structured_data": {"@context": "https://schema.org", "@type": "Product", "name": "{product_name}"},
+  "search_keywords": ["search term 1", "search term 2"],
+  "related_product_types": ["Type 1", "Type 2"],
+  "complementary_materials": ["Material 1", "Material 2"],
+  "applications": ["Residential living room", "Commercial lobby"],
+  "maintenance": "Clean with neutral PH detergent",
+  "installation_recommendations": "Professional installation with C2TE adhesive",
+  "technical_highlights": ["Highlight 1", "Highlight 2"],
+  "customer_benefits": ["Benefit 1", "Benefit 2"]
+}`;
 
-    const systemPrompt = `You are Enreach Product Intelligence AI, an expert in luxury building materials, architectural finishes, premium interiors, showroom product merchandising, customer discovery, and technical SEO.
+    const systemPrompt = `You are DB Market AI, an expert architectural product intelligence engine specializing in premium building materials, construction products, architectural finishes, luxury sanitary ware, plumbing systems, lighting, furniture, kitchens, doors, roofing, aluminium systems, engineering products, and professional construction solutions.
 
-Your responsibility is to analyze one product using its metadata and image, generate accurate structured product intelligence, and return valid JSON matching the schema keys only.
+Your responsibility is to transform raw product information into world-class product intelligence suitable for Architects, Interior Designers, Engineers, Contractors, Quantity Surveyors, Developers, Procurement Teams, Retail Customers, and Luxury Home Owners.
 
-Never return explanations.
-Never return markdown.
-Never return prose outside JSON.
-Your output directly populates the Enreach Digital Showroom products table.`;
+Always produce premium-quality, architect-grade content that is professional, trustworthy, SEO-optimized, luxury, technical, and easy to understand.
+
+Return ONLY valid JSON.
+Do not return markdown code blocks.
+Do not return explanations outside JSON.`;
 
     // 4. Build Product Metadata Payload
     let prompt = templateText
       .replace(/{product_name}/g, product.name || "")
       .replace(/{code}/g, product.code || "")
-      .replace(/{brand}/g, product.brand ?? "Enreach Showroom")
+      .replace(/{brand}/g, product.brand ?? "DB Market Showroom")
       .replace(/{production_name}/g, product.production_name ?? "")
       .replace(/{finish}/g, product.finish ?? product.finish_name ?? "premium finish")
       .replace(/{material}/g, product.material ?? "premium material")
@@ -166,21 +174,18 @@ Your output directly populates the Enreach Digital Showroom products table.`;
     );
 
     if (!json) {
-      throw new Error(`Engine 1 [${provider.name}]: ${parseError || "Failed to generate valid JSON intelligence payload"}`);
+      throw new Error(`Universal AI Engine [${provider.name}]: ${parseError || "Failed to generate valid JSON intelligence payload"}`);
     }
 
-    // 6. EXPLICIT DATABASE MAPPING (ONLY 100% EXISTING COLUMNS)
-    // Real Columns: generated_description, short_description, seo_description, seo_title, seo_keywords,
-    // canonical_slug, faq, structured_data, app_keywords, app_search_keywords, processing_state, is_published, last_processed_at, error_log
+    // 6. EXPLICIT DATABASE MAPPING FOR 19 UNIVERSAL KEYS
     const productPatch: Record<string, any> = {};
 
-    // CRITICAL SYNC RULE: Product Description = SEO Description = Short Description
-    const syncedDescription = json.seo_description || json.meta_description || json.generated_description || json.description || json.short_description || "";
+    const syncedDescription = json.generated_description || json.short_description || json.seo_description || json.meta_description || "";
     if (syncedDescription) {
       productPatch.generated_description = syncedDescription;
-      productPatch.short_description = syncedDescription;
+      productPatch.short_description = json.short_description || syncedDescription;
       if (!product.seo_description_manual) {
-        productPatch.seo_description = syncedDescription;
+        productPatch.seo_description = json.meta_description || syncedDescription;
       }
     }
 
@@ -195,18 +200,14 @@ Your output directly populates the Enreach Digital Showroom products table.`;
     if (json.faq) productPatch.faq = json.faq;
     if (json.structured_data) productPatch.structured_data = json.structured_data;
 
-    // Search Keywords, Terms & Tokens
+    // Combined Search Keywords, Application & Technical Highlights
     const rawSearchKeywords = [
       ...(Array.isArray(json.search_keywords) ? json.search_keywords : []),
-      ...(Array.isArray(json.alternative_terms) ? json.alternative_terms : []),
-      ...(Array.isArray(json.related_terms) ? json.related_terms : []),
-      ...(Array.isArray(json.synonyms) ? json.synonyms : []),
-      ...(Array.isArray(json.customer_phrases) ? json.customer_phrases : []),
-      ...(Array.isArray(json.builder_terminology) ? json.builder_terminology : []),
-      ...(Array.isArray(json.designer_terminology) ? json.designer_terminology : []),
-      ...(Array.isArray(json.contractor_terminology) ? json.contractor_terminology : []),
-      ...(Array.isArray(json.misspellings) ? json.misspellings : []),
-      ...(Array.isArray(json.filter_tokens) ? json.filter_tokens : []),
+      ...(Array.isArray(json.related_product_types) ? json.related_product_types : []),
+      ...(Array.isArray(json.complementary_materials) ? json.complementary_materials : []),
+      ...(Array.isArray(json.applications) ? json.applications : []),
+      ...(Array.isArray(json.technical_highlights) ? json.technical_highlights : []),
+      ...(Array.isArray(json.customer_benefits) ? json.customer_benefits : []),
     ].filter(Boolean);
 
     if (rawSearchKeywords.length > 0) {
@@ -235,7 +236,7 @@ Your output directly populates the Enreach Digital Showroom products table.`;
       detected_finish: json.finish ?? product.finish ?? null,
       detected_color: json.color ?? product.color ?? null,
       detected_keywords: productPatch.app_keywords ?? [],
-      confidence_score: 0.95,
+      confidence_score: 0.98,
       provider: provider.name,
     }, { onConflict: "product_id" } as any);
 
@@ -266,7 +267,7 @@ Your output directly populates the Enreach Digital Showroom products table.`;
         status: "success",
         execution_time_ms: executionMs,
         result: {
-          engine: "Engine 1 (Product Details Engine)",
+          engine: "Universal Product AI Engine",
           provider: provider.name,
           keys_routed: Object.keys(productPatch),
         },

@@ -3,8 +3,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Utility to extract Cloudinary public ID from its secure URL
 export function getPublicIdFromUrl(url: string): string | null {
-  // Cloudinary URL format:
-  // https://res.cloudinary.com/[cloud_name]/image/upload/v[version]/[folder]/[public_id].[ext]
   const regex = /\/image\/upload\/(?:v\d+\/)?([^.]+)/;
   const match = url.match(regex);
   return match ? match[1] : null;
@@ -13,7 +11,7 @@ export function getPublicIdFromUrl(url: string): string | null {
 // Server action to delete an image from Cloudinary
 export const deleteCloudinaryImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { url: string }) => {
+  .validator((data: { url: string }) => {
     if (!data?.url) throw new Error("Cloudinary image URL is required");
     return data;
   })
@@ -34,7 +32,6 @@ export const deleteCloudinaryImage = createServerFn({ method: "POST" })
 
     console.log(`[Cloudinary] Deleting asset ${publicId} from cloud ${cloudName}...`);
 
-    // Dynamically require crypto to avoid shipping client-side
     const crypto = await import("crypto");
     const timestamp = Math.round(Date.now() / 1000);
     const paramString = `public_id=${publicId}&timestamp=${timestamp}`;

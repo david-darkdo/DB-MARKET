@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, Sparkles, Upload, FileText, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck } from "lucide-react";
+import { Sparkles, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck } from "lucide-react";
 import { runProductPipeline } from "@/lib/ai-pipeline.functions";
 import { runProductDetailsEngine } from "@/lib/product-details.functions";
 import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
@@ -39,7 +39,7 @@ function RebuiltNewProductPage() {
   const [generatingLifestyle, setGeneratingLifestyle] = useState(false);
   const [runningPipeline, setRunningPipeline] = useState(false);
 
-  // Collapsible section toggles (Default Collapsed)
+  // Collapsible section toggles
   const [showAdvancedAi, setShowAdvancedAi] = useState(false);
   const [showSeoSection, setShowSeoSection] = useState(false);
   const [showSearchSection, setShowSearchSection] = useState(false);
@@ -108,31 +108,29 @@ function RebuiltNewProductPage() {
   const filteredSubs = useMemo(() => subs.filter((s) => s.category_id === category_id), [subs, category_id]);
   const filteredFams = useMemo(() => fams.filter((f) => f.subcategory_id === subcategory_id), [fams, subcategory_id]);
 
-  // CRITICAL SYNC RULE HANDLER: Description <-> SEO Description
   const handleDescriptionChange = (val: string) => {
     setForm((prev) => ({
       ...prev,
       description: val,
-      seo_description: val, // Auto Sync Rule: Product Description = SEO Description
+      seo_description: val,
     }));
   };
 
   const handleSeoDescriptionChange = (val: string) => {
     setForm((prev) => ({
       ...prev,
-      description: val, // Auto Sync Rule: Product Description = SEO Description
+      description: val,
       seo_description: val,
     }));
   };
 
   const runDetailsFn = useServerFn(runProductDetailsEngine);
   const generateLifestyleFn = useServerFn(generateStandaloneLifestyleImage);
-  const runPipelineFn = useServerFn(runProductPipeline);
 
-  // ENGINE 1 Execution
+  // Universal Product AI Execution
   const handleGenerateDetailsOnNew = async () => {
     if (!form.name.trim()) {
-      toast.error("Please enter a Product Name first before generating details.");
+      toast.error("Please enter a Product Name first before generating AI intelligence.");
       return;
     }
     setGeneratingDetails(true);
@@ -169,8 +167,7 @@ function RebuiltNewProductPage() {
         const d = res.details;
         setAiIntelligence(d);
 
-        // CRITICAL SYNC RULE: Product Description = SEO Description
-        const syncedDesc = d.seo_description || d.meta_description || d.short_description || d.generated_description || "";
+        const syncedDesc = d.generated_description || d.short_description || d.seo_description || d.meta_description || "";
         const seoKw = Array.isArray(d.seo_keywords) ? d.seo_keywords.join(", ") : (d.seo_keywords || "");
         const searchKw = Array.isArray(d.search_keywords) ? d.search_keywords.join(", ") : (d.search_keywords || "");
 
@@ -188,7 +185,7 @@ function RebuiltNewProductPage() {
           misspellings: Array.isArray(d.misspellings) ? d.misspellings.join(", ") : (d.misspellings || ""),
         }));
 
-        toast.success("Engine 1: Product details generated! Form fields & SEO Description synced!");
+        toast.success("Universal AI Engine: Product intelligence generated successfully!");
       }
       await supabase.from("products").delete().eq("id", tempProduct.id);
     } catch (e: any) {
@@ -198,7 +195,6 @@ function RebuiltNewProductPage() {
     }
   };
 
-  // ENGINE 2 Execution
   const handleGenerateLifestyleOnNew = async () => {
     if (!originalPath) {
       toast.error("Please upload an Original Product Image first.");
@@ -234,7 +230,7 @@ function RebuiltNewProductPage() {
       const res = await generateLifestyleFn({ data: { productId: tempProduct.id } });
       if (res.ok && res.imageUrl) {
         setInstalledPath(res.imageUrl);
-        toast.success("Engine 2: Installed lifestyle image generated successfully!");
+        toast.success("Installed architectural scene generated successfully!");
       } else {
         toast.error("Failed to generate installed image");
       }
@@ -246,7 +242,6 @@ function RebuiltNewProductPage() {
     }
   };
 
-  // Full Pipeline Runner
   const handleRunFullPipelineOnNew = async () => {
     if (!form.name.trim()) return toast.error("Product name required");
     setRunningPipeline(true);
@@ -255,10 +250,10 @@ function RebuiltNewProductPage() {
       await handleGenerateLifestyleOnNew();
     }
     setRunningPipeline(false);
-    toast.success("Full AI pipeline completed for product details & lifestyle image!");
+    toast.success("Universal AI pipeline completed!");
   };
 
-  // CREATE PRODUCT HANDLER (No Lost Data)
+  // CREATE PRODUCT HANDLER
   const create = async (targetStatus?: string) => {
     if (!type_id || !category_id || !subcategory_id || !family_id) {
       toast.error("Please complete the classification hierarchy (Type, Category, Subcategory, Family Group).");
@@ -350,7 +345,6 @@ function RebuiltNewProductPage() {
         }] : [])
       ] as any);
 
-      // Rebuild search index
       await supabase.rpc("rebuild_search_index" as any, { _product_id: data.id } as any);
     }
 
@@ -365,7 +359,7 @@ function RebuiltNewProductPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground uppercase">Upload New Product</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Build V3 — Universal AI Operating System Architecture</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Universal AI Product Intelligence Architecture</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -581,7 +575,7 @@ function RebuiltNewProductPage() {
                 className="w-full flex items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Engine 2 Generating Installed Image…" : "Generate Installed Image (Engine 2)"}
+                {generatingLifestyle ? "Generating Architectural Scene…" : "Generate Installed Image"}
               </button>
             </div>
           </div>
@@ -640,7 +634,7 @@ function RebuiltNewProductPage() {
           <div className="flex items-center gap-2">
             <Cpu className="h-4 w-4 text-primary" />
             <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 4 — Advanced AI Operations</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Engine 1 & Engine 2</span>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Universal Engine</span>
           </div>
           {showAdvancedAi ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
@@ -655,7 +649,7 @@ function RebuiltNewProductPage() {
                 className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingDetails ? "Generating Details…" : "Generate Product Details (Engine 1)"}
+                {generatingDetails ? "Generating Details…" : "Generate Product Intelligence"}
               </button>
 
               <button
@@ -665,7 +659,7 @@ function RebuiltNewProductPage() {
                 className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Generating Installed Image…" : "Generate Installed Image (Engine 2)"}
+                {generatingLifestyle ? "Generating Scene…" : "Generate Installed Scene"}
               </button>
 
               <button
@@ -675,19 +669,8 @@ function RebuiltNewProductPage() {
                 className="flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {runningPipeline ? "Running Full Pipeline…" : "Run Full Pipeline"}
+                {runningPipeline ? "Running Pipeline…" : "Run Universal AI Pipeline"}
               </button>
-            </div>
-
-            {/* AI Status & Log */}
-            <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-2 font-mono text-muted-foreground">
-              <div className="flex items-center justify-between text-foreground font-semibold">
-                <span>AI Pipeline Execution Log</span>
-                <span className="text-[10px] text-primary">{aiIntelligence ? "Payload Received" : "Idle"}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {aiIntelligence ? `Generated title: "${aiIntelligence.seo_title || "OK"}" | Synced description length: ${(form.description || "").length} chars` : "No AI execution log generated yet. Click above to run Engine 1 or Engine 2."}
-              </p>
             </div>
           </div>
         )}
@@ -703,7 +686,6 @@ function RebuiltNewProductPage() {
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
             <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 5 — Google SEO & Metadata</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Product Desc == SEO Desc</span>
           </div>
           {showSeoSection ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
@@ -723,7 +705,6 @@ function RebuiltNewProductPage() {
             <div>
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">SEO Description & Product Description (Synced)</label>
-                <span className="text-[9px] text-primary font-semibold">Critical Sync Rule Active</span>
               </div>
               <textarea
                 rows={3}
@@ -750,78 +731,6 @@ function RebuiltNewProductPage() {
                   value={form.canonical_slug}
                   onChange={(e) => setForm((f) => ({ ...f, canonical_slug: e.target.value }))}
                   className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 6: Search Intelligence (Collapsed by default) */}
-      <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowSearchSection(!showSearchSection)}
-          className="w-full flex items-center justify-between p-5 bg-card hover:bg-muted/40 transition text-left"
-        >
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-primary" />
-            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 6 — Search Intelligence Index</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Showroom & Full Text</span>
-          </div>
-          {showSearchSection ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </button>
-
-        {showSearchSection && (
-          <div className="p-5 border-t border-border space-y-4 bg-muted/10">
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Keywords (Comma Separated)</label>
-              <input
-                type="text"
-                value={form.search_keywords}
-                onChange={(e) => setForm((f) => ({ ...f, search_keywords: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-              />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Alternative Names</label>
-                <input
-                  type="text"
-                  value={form.alternative_terms}
-                  onChange={(e) => setForm((f) => ({ ...f, alternative_terms: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Synonyms</label>
-                <input
-                  type="text"
-                  value={form.synonyms}
-                  onChange={(e) => setForm((f) => ({ ...f, synonyms: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border/50">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Related Terms</label>
-                <input
-                  type="text"
-                  value={form.related_terms}
-                  onChange={(e) => setForm((f) => ({ ...f, related_terms: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Common Misspellings</label>
-                <input
-                  type="text"
-                  value={form.misspellings}
-                  onChange={(e) => setForm((f) => ({ ...f, misspellings: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
                 />
               </div>
             </div>

@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Sparkles, Upload, FileText, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck, Check } from "lucide-react";
+import { ArrowLeft, Sparkles, Image, Layers, Cpu, ShieldCheck, Globe, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { runProductDetailsEngine } from "@/lib/product-details.functions";
 import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
 import { runProductPipeline } from "@/lib/ai-pipeline.functions";
@@ -28,7 +28,6 @@ function RebuiltEditProductPage() {
   const [generatingDetails, setGeneratingDetails] = useState(false);
   const [generatingLifestyle, setGeneratingLifestyle] = useState(false);
   const [runningPipeline, setRunningPipeline] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
 
   // Taxonomy options
   const [types, setTypes] = useState<Tax[]>([]);
@@ -84,7 +83,6 @@ function RebuiltEditProductPage() {
   const setField = (key: string, val: any) => {
     setP((prev: any) => {
       const next = { ...prev, [key]: val };
-      // CRITICAL SYNC RULE: Product Description = SEO Description
       if (key === "seo_description" || key === "generated_description" || key === "short_description") {
         next.generated_description = val;
         next.short_description = val;
@@ -92,16 +90,14 @@ function RebuiltEditProductPage() {
       }
       return next;
     });
-    setIsDirty(true);
   };
 
-  // ENGINE 1 Execution
   const handleGenerateDetails = async () => {
     setGeneratingDetails(true);
     try {
       const res = await runDetailsFn({ data: { productId: id } });
       if (res.ok) {
-        toast.success("Engine 1: Product details & SEO description generated!");
+        toast.success("Universal AI Engine: Product details generated!");
         await load();
       } else {
         toast.error("Failed to generate product details.");
@@ -113,7 +109,6 @@ function RebuiltEditProductPage() {
     }
   };
 
-  // ENGINE 2 Execution
   const handleGenerateLifestyle = async () => {
     if (!p.image_url) {
       toast.error("Original product image is required before generating an installed image.");
@@ -123,7 +118,7 @@ function RebuiltEditProductPage() {
     try {
       const res = await generateLifestyleFn({ data: { productId: id } });
       if (res.ok) {
-        toast.success("Engine 2: Installed lifestyle image generated!");
+        toast.success("Installed architectural scene generated!");
         await load();
       } else {
         toast.error("Failed to generate installed image.");
@@ -135,7 +130,6 @@ function RebuiltEditProductPage() {
     }
   };
 
-  // Full Pipeline Execution
   const handleRunFullPipeline = async () => {
     setRunningPipeline(true);
     try {
@@ -153,7 +147,6 @@ function RebuiltEditProductPage() {
     }
   };
 
-  // SAVE HANDLER
   const save = async () => {
     setSaving(true);
     const syncedDesc = p.seo_description || p.short_description || p.generated_description || null;
@@ -177,11 +170,9 @@ function RebuiltEditProductPage() {
       return toast.error(error.message);
     }
 
-    // Rebuild search index
     await supabase.rpc("rebuild_search_index" as any, { _product_id: id } as any);
 
     setSaving(false);
-    setIsDirty(false);
     toast.success("Product changes saved & search index updated!");
     await load();
   };
@@ -408,7 +399,7 @@ function RebuiltEditProductPage() {
                 className="w-full flex items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Engine 2 Generating Installed Image…" : "Generate Installed Image (Engine 2)"}
+                {generatingLifestyle ? "Generating Architectural Scene…" : "Generate Installed Image"}
               </button>
             </div>
           </div>
@@ -459,7 +450,7 @@ function RebuiltEditProductPage() {
           <div className="flex items-center gap-2">
             <Cpu className="h-4 w-4 text-primary" />
             <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 4 — Advanced AI Operations</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Engine 1 & Engine 2</span>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Universal Engine</span>
           </div>
           {showAdvancedAi ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
@@ -474,7 +465,7 @@ function RebuiltEditProductPage() {
                 className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingDetails ? "Generating Details…" : "Generate Product Details (Engine 1)"}
+                {generatingDetails ? "Generating Details…" : "Generate Product Intelligence"}
               </button>
 
               <button
@@ -484,7 +475,7 @@ function RebuiltEditProductPage() {
                 className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Generating Installed Image…" : "Generate Installed Image (Engine 2)"}
+                {generatingLifestyle ? "Generating Scene…" : "Generate Installed Scene"}
               </button>
 
               <button
@@ -494,7 +485,7 @@ function RebuiltEditProductPage() {
                 className="flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {runningPipeline ? "Running Full Pipeline…" : "Run Full Pipeline"}
+                {runningPipeline ? "Running Pipeline…" : "Run Universal AI Pipeline"}
               </button>
             </div>
 
@@ -521,7 +512,6 @@ function RebuiltEditProductPage() {
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
             <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 5 — Google SEO & Metadata</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Product Desc == SEO Desc</span>
           </div>
           {showSeoSection ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
@@ -541,7 +531,6 @@ function RebuiltEditProductPage() {
             <div>
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">SEO Description & Product Description (Synced)</label>
-                <span className="text-[9px] text-primary font-semibold">Critical Sync Rule Active</span>
               </div>
               <textarea
                 rows={3}
@@ -570,40 +559,6 @@ function RebuiltEditProductPage() {
                   className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono"
                 />
               </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 6: Search Intelligence (Collapsed by default) */}
-      <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowSearchSection(!showSearchSection)}
-          className="w-full flex items-center justify-between p-5 bg-card hover:bg-muted/40 transition text-left"
-        >
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-primary" />
-            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 6 — Search Intelligence Index</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Showroom & Full Text</span>
-          </div>
-          {showSearchSection ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </button>
-
-        {showSearchSection && (
-          <div className="p-5 border-t border-border space-y-4 bg-muted/10">
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Keywords (App Keywords)</label>
-              <input
-                type="text"
-                value={arrToStr(p.app_keywords || p.app_search_keywords)}
-                onChange={(e) => {
-                  const arr = strToArr(e.target.value);
-                  setField("app_keywords", arr);
-                  setField("app_search_keywords", arr);
-                }}
-                className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
-              />
             </div>
           </div>
         )}
