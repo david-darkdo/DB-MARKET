@@ -1,27 +1,23 @@
-# Project Current Status
+# Project Current Status — DB Market (Vision V2)
 
-## Completed & Verified Modules
-*   **Infrastructure Migration**: Decoupled from Lovable wrappers. Vite compiles standard client and server (Nitro SSR) environments, producing `.output` and `.vercel/output` structures.
-*   **Database Schema**: Successfully pushed all 18 SQL migrations to the new Supabase project (`hcvusncrtueuclvfdhkd`). Verified the presence of all 22 tables, 15 triggers, 18 functions/RPCs, and 59 RLS policies.
-*   **Storage Model**: Replaced Supabase Storage bucket with Cloudinary. Direct client uploads use unsigned presets, and server-side uploads run with signed parameters. Initialized `product-images` storage bucket in Supabase for backward compatibility.
-*   **Super Admin Access**: Assigned `daviddarkdo@gmail.com` the `super_admin` role in `public.user_roles` to allow immediate access to the Admin Command Center.
-*   **Google OAuth Redirects**: Patched the Site URL to `https://catalogue-harmony-hub.vercel.app` and added allow-list redirects for local development and Vercel.
+## Architectural Alignment Status (July 2026)
+* **Vision Realignment**: Successfully completed total realignment from digital catalog to **Nationwide Building Materials Commerce Infrastructure** (Abuja first).
+* **Documentation Audit**: Audited and rewritten all 18 markdown files in `/docs` to reflect Vision V2, MetaBrain operational model, supplier system, manual V1 fulfillment, OpenAI copy/SEO processing, and SendGrid email integration.
+* **Build Verification**: Executed `npm run build`. Verified that React 19 SPA, TanStack Router, TanStack Start SSR, and Nitro server outputs compile **100% cleanly without errors**.
 
-## Partially Completed Modules
-*   **AI Queue Runner**: Pipeline jobs are tracked in the database, but execution is triggered client-side (manually in `admin.pipeline.tsx` or on product creation). If the admin closes their tab, the queue stalls.
-*   **Prompt Sandbox**: Prompt Editor and visual variables sandbox are functional, but prompts are not yet fully database-driven for client-side outputs.
-*   **Collections Lookbook**: Selections save locally for guests and sync to accounts on auth. Shareable Lookbook links and pre-filled WhatsApp inquiry forms are active.
+---
 
-## Missing Modules (Identified)
-*   **Email Campaign Delivery Worker**: The email campaign editor exists and writes to `email_campaign_logs`, but the actual background worker to trigger Resend emails for campaigns is not yet implemented.
-*   **Analytics Page**: No dedicated analytics tab exists, although basic counts are displayed on the main admin index dashboard.
+## Infrastructure Requirements Status
 
-## Known Blockers & Technical Debt
-*   **Google Auth Credentials**: The Google Auth Provider is disabled in the Supabase Dashboard. This requires manual input of the Google OAuth Client ID and Secret by the project owner.
-*   **Stalled Jobs**: Stalled jobs must be manually set to pending using the database `retry_ai_job` RPC or the "Run now" button in the pipeline interface.
+| Service | Required Action | Status |
+| :--- | :--- | :--- |
+| **Supabase Database** | Create NEW Supabase project for DB Market & generate new API keys | **Pending User Creation / API Keys Input** |
+| **Vercel Deployment** | Configure Vercel project build settings & new environment variables | **Prepared for Deployment** |
+| **Cloudinary CDN** | Configure unsigned preset `products` and API secret keys | **Reusable Credentials Ready** |
+| **OpenAI API Engine** | Set `OPENAI_API_KEY` for text copy & SEO metadata generation | **Configured in Architecture** |
+| **SendGrid Mail Engine**| Set `SENDGRID_API_KEY` for transactional order receipts and dispatches | **Configured in Architecture** |
 
-## AI Prompt System Audit (July 2026)
-*   **Prompt Manager UI**: Active at route `/admin/prompts` and fully visible in the admin shell header navigation.
-*   **Database Sync**: Verified direct read/write operations against the `ai_prompt_templates` table. Saves are committed instantly via Supabase RPC/client.
-*   **Pipeline Template Loading**: Fully implemented. The queue worker automatically selects templates corresponding to the product's `installation_context_id`.
-*   **Taxonomy & Variable Interpolation**: Aligned UI preview sandbox and backend pipeline. 8 specific tokens are fully supported: `{product_name}`, `{product_type}`, `{category}`, `{brand}`, `{material}`, `{finish}`, `{company_name}` (with dynamic email, address, and phone fallbacks from `app_settings`), and `{context}`.
+---
+
+## Next Immediate Milestone
+Execute Phase 2 (Supabase New Project Provisioning & Migration) and Phase 3 (Cart, Checkout & Manual Order Fulfillment Console) upon user approval of this Vision V2 Directive.

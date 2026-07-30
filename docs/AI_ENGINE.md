@@ -1,18 +1,55 @@
-# AI Pipeline Engine
+# AI Pipeline Engine — DB Market (Vision V2)
 
-## Gemini & Imagen 3 Integration
-*   **Text completions**: Requests route directly to `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` using the OpenAI client contract. This model analyzes specification sheets to extract catalog attributes and draft luxury descriptions.
-*   **Image generations**: Requests route directly to the Imagen 3 endpoint `imagen-3.0-generate-002:generateImages`. This model processes descriptions to render high-resolution 1:1 aspect ratio PNG mockups.
+## OpenAI System Architecture
+DB Market uses **OpenAI** (`gpt-4o` and `gpt-4o-mini`) as its sole, primary AI engine.
 
-## Pipeline Job States
-1.  **understanding**: LLM categorizes finishes, colors, materials, and features.
-2.  **description**: Drafts descriptive copy tailored for the luxury Nigerian construction market.
-3.  **seo**: Writes titles, keywords, description tags, and slug fields.
-4.  **faq_generation**: Compiles 5 common client questions and answers.
-5.  **image_generation**: Triggers Imagen 3, converts output base64 data to PNG buffers, and uploads them to Cloudinary.
-6.  **search_index**: Regenerates the search vector database entries.
+All Gemini, Imagen 3, and AI image generation components have been completely removed. DB Market relies exclusively on authentic supplier product photos and technical specification sheets.
 
-## Error Recovery
-*   Failed tasks set product state to `failed`.
-*   Error messages are written directly to `error_log` inside the jobs record.
-*   Admins can re-trigger failed tasks using the Admin OS dashboard.
+---
+
+## AI Scope & Capabilities
+
+OpenAI is utilized strictly for text processing, SEO optimization, and data normalization:
+
+1. **Specification Analysis**: Parses uploaded raw specification sheets, extracting dimensions, finishes, unit measures, materials, and country of origin.
+2. **Luxury Description Generation**: Drafts high-end, professional copy tailored to Nigerian architects, builders, and luxury homeowners.
+3. **SEO Metadata Optimization**: Generates search-engine-optimized page titles, meta descriptions, and canonical slugs.
+4. **Keyword Extraction**: Identifies technical synonyms, metric/imperial size aliases, and regional terminology to enrich the search engine.
+5. **Taxonomy & Category Classification**: Suggests the optimal Product Type, Category, Subcategory, and Family Group placement.
+
+---
+
+## Pipeline Execution Stages
+
+```
+[Supplier Product Submission]
+           │
+           ▼
+[Stage 1: Spec Analysis & Normalization]
+  • Model: `gpt-4o-mini`
+  • Input: Raw specs text / sheet upload
+  • Output: Structured JSON (material, finish, normalized size, country)
+           │
+           ▼
+[Stage 2: Luxury Copy Generation]
+  • Model: `gpt-4o`
+  • Input: Product name, brand, material, finish
+  • Output: Professional catalog description
+           │
+           ▼
+[Stage 3: SEO & Discovery Optimization]
+  • Model: `gpt-4o-mini`
+  • Input: Name, category, target location (Abuja / Nigeria)
+  • Output: SEO Title (<60 chars), Meta Description (<160 chars), Keywords array
+           │
+           ▼
+[Stage 4: Search Vector Sync]
+  • PostgreSQL trigger executes `rebuild_search_index()`
+```
+
+---
+
+## Error Handling & Recovery
+* If OpenAI API calls fail due to network or rate limits, the task error is logged to `openai_logs`.
+* The product remains in `pending_review` status.
+* MetaBrain administrators can re-trigger OpenAI processing from the Admin OS dashboard (`/admin/pipeline`) or manually override generated text prior to publishing.

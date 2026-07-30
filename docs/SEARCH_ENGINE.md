@@ -1,15 +1,26 @@
-# Search Engine Architecture
+# Search Engine Architecture — DB Market (Vision V2)
 
-## Database Integration
-The search engine is built directly into PostgreSQL using Supabase:
-*   The search documents are cached in the `search_index` table to ensure quick queries.
-*   Updates to products or AI understanding tags trigger automatic index updates.
+## Overview
+DB Market's search engine is integrated directly into PostgreSQL using Supabase, enhanced with OpenAI keyword enrichment and normalized metric/imperial dimension aliasing.
 
-## Normalization & Aliases
-*   The `generate_size_aliases` database function normalizes dimension searches. A query for "600x600" will match items described as "60x60 cm" or "600x600 mm".
-*   Common typos and spelling variations are mapped to keywords.
+---
 
-## Match Ranking
-*   Uses `ts_rank_cd` to sort results.
-*   Matches in titles and brands receive higher weights than matches in description copies.
-*   Provides structured filtering for categories and subcategories.
+## Technical Features
+
+### 1. Vector Document Caching
+Search vectors are cached in `public.search_index` to execute sub-50ms queries across thousands of building material SKUs.
+
+### 2. Dimension & Size Normalization (`generate_size_aliases`)
+Building materials searches often vary by measurement format. The search index normalizes dimensions automatically:
+* `600x600 mm` ↔ `60x60 cm` ↔ `24x24 inch`
+* `3x7 ft` ↔ `900x2100 mm`
+* `50 kg` ↔ `50kg bag`
+
+### 3. OpenAI Keyword Enrichment
+During product publishing, OpenAI extracts technical synonyms, local trade terms used in Abuja/Nigeria (e.g., "POP cement", "granite tile", "Teak door"), and common misspellings, appending them to the search document.
+
+### 4. Ranking & Relevance (`ts_rank_cd`)
+Search results are ordered using `ts_rank_cd` with weighted priorities:
+* **Weight A**: Product Name, SKU, Brand.
+* **Weight B**: Category, Material, Finish.
+* **Weight C**: OpenAI Copy, Search Keywords.

@@ -1,18 +1,51 @@
-# Product Architecture (PIM)
+# Product Information Architecture (PIM) — DB Market (Vision V2)
 
-## Taxonomy Structure
-The product information manager uses a 5-tier taxonomy:
-1.  **Product Type**: Root categorization (e.g., Tiles, Doors, Sanitaryware).
-2.  **Category**: Second-level taxonomy (e.g., Ceramic Tiles, Flush Doors).
-3.  **Subcategory**: Third-level taxonomy (e.g., Large Format).
-4.  **Family Group**: Branding and collections (e.g., Carrara Series).
-5.  **Product**: The individual physical catalog item.
+## Product Ownership Principles
+* **Inventory Ownership**: Suppliers own their physical stock, warehouse inventory, and original product photographs.
+* **Presentation Ownership**: MetaBrain owns product presentation, copywriting, SEO optimization, retail pricing strategy, SKU allocation, and publishing control.
 
-## Product Code System
-*   Unique codes are assigned to products on ingestion (e.g., `TL-CER-0024`).
-*   Codes are generated using the `generate_product_code` database function.
+---
 
-## Media Asset Workflow
-*   **Original Photos**: Uploaded by admins to represent the physical item.
-*   **AI Studio Renderings**: Rendered by Imagen 3 against neutral studio backdrops.
-*   **AI Context Renderings**: Rendered by Imagen 3 showing products installed in situated luxury layouts.
+## 5-Tier Product Taxonomy
+
+```
+1. Product Type      (Root classification e.g. Tiles, Doors, Plumbing, Structural)
+   └─► 2. Category         (e.g. Porcelain Tiles, Security Doors, Faucets)
+        └─► 3. Subcategory     (e.g. Large Format 60x120, Double Leaf Doors)
+             └─► 4. Family Group   (e.g. Carrara Luxury Series)
+                  └─► 5. Product       (Individual catalog item listed by Supplier)
+```
+
+---
+
+## Product Approval & Publishing Lifecycle
+
+```
+[Supplier Submission / Edit] ──► [Status: `pending_review`]
+                                          │
+                                          ▼
+                         [MetaBrain Quality & SEO Audit]
+                          • OpenAI luxury copy generation
+                          • Metric/Imperial size normalization
+                          • Retail pricing & margin calculation
+                          • SKU allocation (`TL-CER-0042`)
+                                          │
+                        ┌─────────────────┴─────────────────┐
+                        ▼                                   ▼
+              [MetaBrain Approves]                [MetaBrain Rejects]
+                        │                                   │
+                        ▼                                   ▼
+             [Status: `published`]               [Status: `rejected`]
+             (Live in Public Feed)              (Returned to Supplier)
+                        │
+                        ▼
+           (If Supplier Edits Again)
+                        │
+                        └────────► Reverts to `pending_review`
+```
+
+---
+
+## Standardized SKU Generator
+Products receive a unique sequential SKU assigned upon MetaBrain approval:
+`[TYPE_PREFIX]-[CAT_PREFIX]-[SEQUENTIAL_NUMBER]` (e.g. `TL-POR-0142` for Porcelain Tiles).

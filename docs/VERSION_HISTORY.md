@@ -1,16 +1,21 @@
-# Architecture Decision Records & Version History
+# Architecture Decision Records (ADRs) & Version History — DB Market
 
-## ADR 1: Lovable Decoupling (July 2026)
-*   **Decision**: Remove Lovable config wrappers and OAuth proxies.
-*   **Rationale**: Ensure production independence, prevent telemetry errors, and allow deployments to standard Vercel accounts.
-*   **Result**: Migration to native Supabase client libraries and standard Vite compilation plugins.
+## ADR 4: Vision V2 — Building Materials Commerce Infrastructure Pivot (July 2026)
+* **Decision**: Evolve DB Market from a digital showroom catalog into a nationwide Building Materials Commerce Infrastructure starting in Abuja.
+* **Rationale**: High-value building materials transactions require integrated procurement, unified checkout, supplier onboarding, and managed fulfillment.
+* **Result**: Unified single-application codebase handling customers, suppliers, and MetaBrain operations.
 
-## ADR 2: Cloudinary Storage (July 2026)
-*   **Decision**: Transition asset storage from Supabase Storage buckets to Cloudinary.
-*   **Rationale**: Cloudinary provides high-performance media CDN delivery and real-time transformations.
-*   **Result**: Integrated direct unsigned uploads on the client and signed uploads on the server.
+## ADR 5: MetaBrain Ownership & Supplier Approval Lifecycle (July 2026)
+* **Decision**: Suppliers own physical inventory; MetaBrain owns presentation, SKU, SEO, pricing strategy, publishing workflow, and customer experience.
+* **Rationale**: Guarantees luxury copywriting, verified specs, search consistency, and trust across the platform.
+* **Result**: Products uploaded by suppliers enter `pending_review` and require MetaBrain approval before publishing. Edits by suppliers revert products to `pending_review`.
 
-## ADR 3: Direct Google AI Studio Integration (July 2026)
-*   **Decision**: Bypass Lovable's AI proxy and call Google AI Studio endpoints directly.
-*   **Rationale**: Ensure API call reliability and avoid third-party routing.
-*   **Result**: Switched to direct Gemini/Imagen endpoints using local API keys.
+## ADR 6: AI & Email Engine Consolidation (July 2026)
+* **Decision**: Replace Gemini, Imagen 3, and Resend with **OpenAI** (for text/SEO copy) and **SendGrid** (for transactional emails).
+* **Rationale**: Eliminates AI-generated fake product imagery in favor of real photos; streamlines AI integration to text/SEO normalization via OpenAI; standardizes mail delivery on SendGrid.
+* **Result**: Clean environment configuration and zero AI image generation.
+
+## ADR 7: Manual V1 Fulfillment Consolidation (July 2026)
+* **Decision**: Implement a manual order fulfillment workflow managed by MetaBrain Operations for Version 1.
+* **Rationale**: Ensures 100% quality control, logistics verification, and merchant onboarding validation in Abuja before automating routing software.
+* **Result**: MetaBrain Ops consolidates supplier items and coordinates site delivery.

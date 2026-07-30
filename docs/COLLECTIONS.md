@@ -1,13 +1,17 @@
-# Collections & Lookbook System
+# Lookbook & Material Selections — DB Market (Vision V2)
 
-## Architecture
-*   **Unauthenticated Users**: Saved selections are stored in the client browser's local storage.
-*   **Authenticated Users**: Selections are saved to the database (`collections` and `collection_items` tables).
+## Overview
+Lookbooks allow architects, contractors, and homeowners to curate material selections for building projects.
 
-## Session Merging
-*   When a guest user logs in, a trigger function merges local storage lookbook selections into their database account.
+---
 
-## Sharing & Brochure Exports
-*   Users can generate shareable lookbook URLs.
-*   Lookbooks can be exported to PDFs, listing items, specifications, and codes.
-*   Includes a direct button to send lookbook links to sales consultants via WhatsApp.
+## Client & Database Architecture
+* **Guest Users**: Selections are saved in `localStorage` in the browser.
+* **Logged-In Users**: Selections sync to `public.collections` and `public.collection_items` in Supabase.
+* **Session Merging**: Upon signing up or logging in, local storage selections automatically merge into the user's database profile via Supabase RPC.
+
+---
+
+## Commerce Integration
+* **Bulk Cart Transfer**: Users can click "Add Lookbook to Cart" to transfer an entire curated selection into an active purchase order.
+* **WhatsApp PDF & Link Export**: Generates a shareable URL or printable specification sheet to share with project clients or send to MetaBrain Operations for bulk pricing.
