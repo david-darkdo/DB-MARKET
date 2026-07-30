@@ -1,13 +1,24 @@
 {
-  "name": "DB Market — Building Materials Commerce Infrastructure",
+  "name": "DB Market — Premium Building Materials",
   "short_name": "DB Market",
-  "description": "Nigeria's digital marketplace for verified building materials.",
+  "description": "Luxury commerce platform for premium architectural and building materials.",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "background_color": "#0D0D0D",
-  "theme_color": "#0D47FF",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait-primary",
   "icons": [
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

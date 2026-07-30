@@ -6,7 +6,6 @@ import { RefreshCw, Play, AlertTriangle, CheckCircle2, Clock, Archive, Sparkles 
 import { publicImageUrl } from "@/components/ImageUploader";
 import { useServerFn } from "@tanstack/react-start";
 import { runProductPipeline } from "@/lib/ai-pipeline.functions";
-import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
 import { runProductDetailsEngine } from "@/lib/product-details.functions";
 import { regenerateWithHashGuard, retryProductPipeline } from "@/lib/pipeline";
 
@@ -19,17 +18,15 @@ type Bucket = "pending" | "processing" | "completed" | "needs_review" | "error" 
 
 function PipelinePage() {
   const runPipeline = useServerFn(runProductPipeline);
-  const generateLifestyleFn = useServerFn(generateStandaloneLifestyleImage);
   const runDetailsFn = useServerFn(runProductDetailsEngine);
   const [runningDetails, setRunningDetails] = useState<string | null>(null);
-  const [generatingLifestyle, setGeneratingLifestyle] = useState<string | null>(null);
 
   const handleGenerateDetailsOnly = async (productId: string) => {
     setRunningDetails(productId);
     try {
       const res = await runDetailsFn({ data: { productId } });
       if (res.ok) {
-        toast.success("Engine 1: Product details generated successfully!");
+        toast.success("Product intelligence & descriptions generated!");
       } else {
         toast.error("Failed to generate product details.");
       }
@@ -41,26 +38,6 @@ function PipelinePage() {
     }
   };
 
-  const handleGenerateLifestyleOnly = async (productId: string, hasOriginalImage: boolean) => {
-    if (!hasOriginalImage) {
-      toast.error("Original product image is required before generating an installed image.");
-      return;
-    }
-    setGeneratingLifestyle(productId);
-    try {
-      const res = await generateLifestyleFn({ data: { productId } });
-      if (res.ok) {
-        toast.success("Installed lifestyle image generated successfully!");
-      } else {
-        toast.error("Failed to generate installed image.");
-      }
-    } catch (e: any) {
-      toast.error(e.message ?? "Generation failed");
-    } finally {
-      setGeneratingLifestyle(null);
-      await loadRows(); await loadCounts();
-    }
-  };
   const [running, setRunning] = useState<string | null>(null);
   const [bucket, setBucket] = useState<Bucket>("processing");
   const [rows, setRows] = useState<any[]>([]);
@@ -98,205 +75,131 @@ function PipelinePage() {
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { loadRows(); }, [loadRows]);
 
-  const handleRetryProduct = async (productId: string) => {
+  const handleRun = async (id: string) => {
+    setRunning(id);
     try {
-      await retryProductPipeline(productId);
-      toast.success("Pipeline re-queued to pending");
-      await loadRows(); await loadCounts();
-    } catch (e: any) { toast.error(e.message ?? "Retry failed"); }
-  };
-
-  const handleRunNow = async (productId: string) => {
-    setRunning(productId);
-    try {
-      const res = await runPipeline({ data: { productId } });
+      const res = await runPipeline({ data: { productId: id } });
       if (res.ok) {
-        toast.success("Pipeline completed successfully!");
+        toast.success("Pipeline executed successfully!");
       } else {
-        toast.error(`Pipeline failed: ${res.error || "See error log"}`);
+        toast.error(`Pipeline failed: ${(res as any).error}`);
       }
     } catch (e: any) {
-      toast.error(e.message ?? "Run failed");
+      toast.error(e.message ?? "Pipeline call failed");
     } finally {
       setRunning(null);
-      await loadRows(); await loadCounts();
+      await loadRows();
+      await loadCounts();
     }
   };
 
-  const handleRegenerate = async (productId: string) => {
-    try {
-      const res = await regenerateWithHashGuard(productId);
-      if (res.skipped) {
-        if (!confirm(res.reason + "\n\nRegenerate anyway?")) return;
-        await regenerateWithHashGuard(productId, { force: true });
-      }
-      toast.success("Regeneration queued successfully");
-      await loadRows(); await loadCounts();
-    } catch (e: any) { toast.error(e.message ?? "Failed"); }
-  };
-
-  const handleArchive = async (productId: string) => {
-    if (!confirm("Archive this product? It will be hidden from the feed.")) return;
-    const { error } = await supabase
-      .from("products")
-      .update({ processing_state: "archived", status: "archived" } as any)
-      .eq("id", productId);
-    if (error) return toast.error(error.message);
-    toast.success("Archived");
-    await loadRows(); await loadCounts();
-  };
-
-  const handleUnarchive = async (productId: string) => {
-    const { error } = await supabase
-      .from("products")
-      .update({ processing_state: "draft", status: "draft" } as any)
-      .eq("id", productId);
-    if (error) return toast.error(error.message);
-    toast.success("Restored to draft");
-    await loadRows(); await loadCounts();
-  };
-
-  const buckets: { key: Bucket; label: string; icon: any; color: string }[] = [
-    { key: "processing", label: "Processing", icon: RefreshCw, color: "text-blue-500" },
-    { key: "pending", label: "Pending", icon: Clock, color: "text-amber-500" },
-    { key: "completed", label: "Completed", icon: CheckCircle2, color: "text-primary" },
-    { key: "error", label: "Failed", icon: AlertTriangle, color: "text-destructive" },
-    { key: "archived", label: "Archived", icon: Archive, color: "text-muted-foreground" },
+  const buckets: { key: Bucket; label: string; icon: any }[] = [
+    { key: "processing", label: "Processing", icon: Clock },
+    { key: "completed", label: "Completed", icon: CheckCircle2 },
+    { key: "needs_review", label: "Needs Review", icon: AlertTriangle },
+    { key: "error", label: "Error", icon: AlertTriangle },
+    { key: "pending", label: "Pending", icon: Clock },
+    { key: "archived", label: "Archived", icon: Archive },
   ];
 
   return (
-    <div className="container-app py-6 space-y-6 max-w-5xl">
-      <div className="border-b border-border pb-5">
-        <h1 className="font-display text-2xl font-bold tracking-tight">AI Operations Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Monitor jobs, failures, and regenerate or retry processes on the Universal AI Operating System.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {buckets.map((b) => (
-          <button
-            key={b.key}
-            onClick={() => setBucket(b.key)}
-            className={`rounded-xl border p-4 text-left transition cursor-pointer select-none ${
-              bucket === b.key ? "border-primary bg-primary/5 font-semibold" : "border-border bg-card hover:border-primary/40 text-muted-foreground"
-            }`}
-          >
-            <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${b.color}`}>
-              <b.icon className="h-3.5 w-3.5" /> {b.label}
-            </div>
-            <div className="mt-2 text-2xl font-bold text-foreground">{counts[b.key]}</div>
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <h2 className="font-display font-semibold capitalize text-base">{bucket} products</h2>
-          <button
-            onClick={() => { void loadRows(); void loadCounts(); }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:border-primary cursor-pointer transition"
-          >
-            <RefreshCw className="h-3 w-3" /> Refresh
-          </button>
+    <div className="container-app py-6 space-y-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold uppercase tracking-tight">AI Operations Dashboard</h1>
+          <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+            Universal Product AI Architecture — Processing Queue & Health
+          </p>
         </div>
+        <button
+          onClick={() => { void loadCounts(); void loadRows(); }}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-semibold hover:bg-card transition"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Refresh Queue
+        </button>
+      </div>
+
+      {/* Bucket Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+        {buckets.map((b) => {
+          const Icon = b.icon;
+          const active = bucket === b.key;
+          return (
+            <button
+              key={b.key}
+              onClick={() => setBucket(b.key)}
+              className={`flex flex-col items-center justify-center p-3 rounded-lg border text-xs font-semibold transition ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <Icon className="h-3.5 w-3.5" />
+                <span>{b.label}</span>
+              </div>
+              <span className="font-mono text-sm mt-1">{counts[b.key]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Queue Table */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
+            Queue: {bucket} ({rows.length})
+          </h2>
+        </div>
+
         {loading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Loading products list...</div>
+          <div className="p-8 text-center text-xs text-muted-foreground font-mono">
+            Loading queue records…
+          </div>
         ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">No products found in this category.</div>
+          <div className="p-8 text-center text-xs text-muted-foreground">
+            No products found in bucket state: <span className="font-mono">{bucket}</span>
+          </div>
         ) : (
-          <ul className="divide-y divide-border">
-            {rows.map((p) => (
-              <li key={p.id} className="p-4 hover:bg-muted/10 transition">
-                <div className="flex flex-wrap items-start gap-4">
-                  {publicImageUrl(p.image_url) ? (
-                    <img src={publicImageUrl(p.image_url)!} alt="" className="h-16 w-16 rounded border border-border object-cover bg-muted" />
+          <div className="divide-y divide-border overflow-x-auto">
+            {rows.map((r) => (
+              <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  {r.image_url ? (
+                    <img src={publicImageUrl(r.image_url) || r.image_url} alt="" className="h-10 w-10 rounded-md object-cover border border-border" />
                   ) : (
-                    <div className="h-16 w-16 rounded border border-dashed border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">No image</div>
+                    <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center text-[10px] text-muted-foreground">No img</div>
                   )}
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <Link
-                      to="/admin/products/$id"
-                      params={{ id: p.id }}
-                      className="block truncate font-semibold hover:text-primary text-sm"
-                    >
-                      {p.name}
-                    </Link>
-                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-mono bg-muted border border-border px-1.5 py-0.5 rounded text-[10px]">{p.code}</span>
-                      <span>·</span>
-                      <span>v{p.generation_version ?? 0}</span>
-                      <span>·</span>
-                      <span>Retries: {p.retry_count ?? 0}</span>
-                      {p.last_processed_at && (
-                        <>
-                          <span>·</span>
-                          <span>Last active: {new Date(p.last_processed_at).toLocaleString()}</span>
-                        </>
-                      )}
-                    </div>
-                    {p.error_log && (
-                      <div className="mt-2 rounded-lg bg-destructive/5 border border-destructive/10 p-3">
-                        <div className="text-[11px] font-mono text-destructive break-all whitespace-pre-wrap max-h-32 overflow-y-auto">
-                          {typeof p.error_log === "string" ? p.error_log : JSON.stringify(p.error_log, null, 2)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-1 sm:pt-0">
-                    {(bucket === "pending" || bucket === "processing" || bucket === "error") && (
-                      <button
-                        disabled={running === p.id}
-                        onClick={() => void handleGenerateDetailsOnly(p.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 cursor-pointer shadow-sm"
-                      >
-                        <Play className="h-3 w-3" /> {runningDetails === p.id ? "Generating Details…" : "Generate Details (Engine 1)"}
-                      </button>
-                    )}
-                    {bucket === "error" && (
-                      <button
-                        onClick={() => void handleRetryProduct(p.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-                      >
-                        <RefreshCw className="h-3 w-3" /> Retry Pipeline
-                      </button>
-                    )}
-                    {bucket === "completed" && (
-                      <button
-                        onClick={() => void handleRegenerate(p.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-                      >
-                        <RefreshCw className="h-3 w-3" /> Regenerate
-                      </button>
-                    )}
-                    <button
-                      disabled={generatingLifestyle === p.id || !p.image_url}
-                      onClick={() => void handleGenerateLifestyleOnly(p.id, !!p.image_url)}
-                      title={!p.image_url ? "Original product image is required before generating an installed image." : "Generate Installed Image"}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 hover:border-primary disabled:opacity-50 cursor-pointer shadow-sm"
-                    >
-                      <Sparkles className="h-3 w-3" /> {generatingLifestyle === p.id ? "Generating Image…" : "Generate Installed Image"}
-                    </button>
-                    {bucket !== "archived" ? (
-                      <button
-                        onClick={() => void handleArchive(p.id)}
-                        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                      >
-                        Archive
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => void handleUnarchive(p.id)}
-                        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-                      >
-                        Restore to Draft
-                      </button>
-                    )}
+                  <div className="min-w-0">
+                    <p className="font-bold text-foreground truncate">{r.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      Code: {r.code} · ID: {r.id}
+                    </p>
                   </div>
                 </div>
-              </li>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleGenerateDetailsOnly(r.id)}
+                    disabled={runningDetails === r.id}
+                    className="inline-flex items-center gap-1.5 rounded bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {runningDetails === r.id ? "Generating…" : "Run Details AI"}
+                  </button>
+
+                  <button
+                    onClick={() => handleRun(r.id)}
+                    disabled={running === r.id}
+                    className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-bold uppercase text-primary-foreground hover:bg-primary/90 transition shadow-sm disabled:opacity-50"
+                  >
+                    <Play className="h-3 w-3" />
+                    {running === r.id ? "Running…" : "Run Full AI"}
+                  </button>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>
