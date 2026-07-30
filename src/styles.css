@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..900;1,300..900&display=swap');
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -5,8 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -39,45 +40,48 @@
 }
 
 /*
- * Mature, refined palette: warm cream backgrounds with a single
- * sage / forest-green primary and a brushed-gold accent. Avoids the
- * heavy dark-green look of the reference mock.
+ * DB MARKET OFFICIAL DESIGN SYSTEM (V2 BRAND BOARD)
+ * Primary Deep Black: #0D0D0D
+ * Primary Royal Blue: #0D47FF
+ * Luxury Gold: #FFC107
+ * Dark Charcoal Card: #1A1A1A
+ * Soft Ice White: #F5F7FA
  */
 :root {
-  --radius: 0.75rem;
+  --radius: 0.85rem;
 
-  /* Backgrounds — warm off-white, paper feel */
-  --background: oklch(0.985 0.005 95);
-  --foreground: oklch(0.18 0.012 145);
-  --surface: oklch(0.965 0.008 95);
-  --surface-2: oklch(0.94 0.012 95);
+  /* Dark Luxury Base Theme */
+  --background: #0D0D0D;
+  --foreground: #F5F7FA;
+  --surface: #141414;
+  --surface-2: #1E1E1E;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.012 145);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.012 145);
+  --card: #1A1A1A;
+  --card-foreground: #F5F7FA;
+  --popover: #1A1A1A;
+  --popover-foreground: #F5F7FA;
 
-  /* Primary: muted forest-sage green (mature, not vibrant) */
-  --primary: oklch(0.42 0.055 150);
-  --primary-foreground: oklch(0.98 0.005 95);
+  /* Primary Royal / Electric Blue */
+  --primary: #0D47FF;
+  --primary-foreground: #FFFFFF;
 
-  /* Accent: brushed gold */
-  --gold: oklch(0.72 0.115 82);
-  --accent: oklch(0.72 0.115 82);
-  --accent-foreground: oklch(0.18 0.012 145);
+  /* Luxury Gold Accent */
+  --gold: #FFC107;
+  --accent: #FFC107;
+  --accent-foreground: #0D0D0D;
 
-  --secondary: oklch(0.93 0.012 145);
-  --secondary-foreground: oklch(0.25 0.02 145);
+  --secondary: #222222;
+  --secondary-foreground: #F5F7FA;
 
-  --muted: oklch(0.93 0.008 95);
-  --muted-foreground: oklch(0.45 0.012 145);
+  --muted: #242424;
+  --muted-foreground: #9E9E9E;
 
-  --destructive: oklch(0.55 0.18 27);
-  --destructive-foreground: oklch(0.98 0 0);
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
 
-  --border: oklch(0.88 0.012 95);
-  --input: oklch(0.9 0.012 95);
-  --ring: oklch(0.42 0.055 150);
+  --border: #2A2A2A;
+  --input: #242424;
+  --ring: #0D47FF;
 }
 
 @layer base {
@@ -87,6 +91,9 @@
 
   html {
     font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    background-color: #0D0D0D;
+    color: #F5F7FA;
   }
 
   body {
@@ -94,19 +101,72 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
-  h1, h2, h3, h4, h5 {
+  h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
+    font-weight: 700;
   }
+}
+
+/* Animations & Interaction Insights from Brand Board */
+@keyframes buttonGlowBlue {
+  0%, 100% { box-shadow: 0 0 12px rgba(13, 71, 255, 0.35); }
+  50% { box-shadow: 0 0 24px rgba(13, 71, 255, 0.7); }
+}
+
+@keyframes buttonGlowGold {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 193, 7, 0.35); }
+  50% { box-shadow: 0 0 24px rgba(255, 193, 7, 0.7); }
+}
+
+@keyframes cartBounce {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px) scale(1.1); }
+  60% { transform: translateY(-2px) scale(1.05); }
+}
+
+@keyframes cardLift {
+  0% { transform: translateY(0); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  100% { transform: translateY(-6px); box-shadow: 0 16px 32px rgba(13, 71, 255, 0.15), 0 8px 16px rgba(0, 0, 0, 0.4); }
+}
+
+.btn-glow-blue {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-glow-blue:hover {
+  transform: translateY(-1.5px) scale(1.01);
+  box-shadow: 0 0 20px rgba(13, 71, 255, 0.5);
+}
+
+.btn-glow-gold {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-glow-gold:hover {
+  transform: translateY(-1.5px) scale(1.01);
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+}
+
+.card-hover-lift {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover-lift:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 193, 7, 0.35);
+  box-shadow: 0 16px 36px rgba(13, 71, 255, 0.18), 0 6px 12px rgba(0, 0, 0, 0.5);
+}
+
+.animate-cart-bounce {
+  animation: cartBounce 0.5s ease-out;
 }
 
 @utility container-app {
   width: 100%;
-  max-width: 80rem;
+  max-width: 84rem;
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-inline: 1.25rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
