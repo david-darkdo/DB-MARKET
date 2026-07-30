@@ -117,7 +117,7 @@ function RebuiltEditProductPage() {
       }
     } catch (e: any) {
       toast.error(e.message ?? "Pipeline run failed");
-    } fontally {
+    } finally {
       setRunningPipeline(false);
     }
   };
