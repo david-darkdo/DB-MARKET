@@ -1,28 +1,28 @@
 import { Link } from "@tanstack/react-router";
 import type { ProductRow } from "@/lib/catalog";
-import { AddToCollectionButton } from "./AddToCollectionButton";
 import { publicImageUrl } from "./ImageUploader";
-import { Heart, ShieldCheck, Eye } from "lucide-react";
+import { Heart, ShieldCheck, Eye, Bookmark } from "lucide-react";
 import { useMemo } from "react";
 import { useFavorites } from "@/hooks/useFavorites";
 
 export function ProductCardSkeleton() {
   return (
-    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-[#1A1A1A] shadow-xs select-none">
-      <div className="aspect-square bg-[#141414] relative flex items-center justify-center overflow-hidden">
+    <div className="relative flex flex-col overflow-hidden rounded-[14px] border border-[#2A2A2A] bg-[#1A1A1A] p-3 sm:p-4 select-none">
+      <div className="aspect-[16/10] bg-[#141414] rounded-[10px] relative flex items-center justify-center overflow-hidden">
         <div className="animate-pulse">
           <div className="font-display font-black text-xl text-border">DB</div>
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className="flex flex-1 flex-col gap-2.5 pt-3">
         <div className="space-y-2">
-          <div className="h-3.5 bg-border/40 rounded-md w-3/4 animate-pulse" />
-          <div className="h-2.5 bg-border/30 rounded-md w-1/2 animate-pulse" />
+          <div className="h-3 bg-border/40 rounded w-1/3 animate-pulse" />
+          <div className="h-4 bg-border/40 rounded w-3/4 animate-pulse" />
+          <div className="h-3 bg-border/30 rounded w-1/2 animate-pulse" />
         </div>
-        <div className="h-4 bg-border/30 rounded-md w-1/3 mt-2 animate-pulse" />
-        <div className="mt-auto flex gap-2 pt-3 border-t border-border/40">
-          <div className="flex-1 h-8 bg-border/30 rounded-full animate-pulse" />
-          <div className="flex-1 h-8 bg-border/30 rounded-full animate-pulse" />
+        <div className="h-5 bg-border/40 rounded w-1/3 mt-1 animate-pulse" />
+        <div className="mt-auto flex gap-2 pt-3 border-t border-[#2A2A2A]">
+          <div className="w-16 h-11 bg-border/30 rounded-[12px] animate-pulse" />
+          <div className="flex-1 h-11 bg-border/30 rounded-[12px] animate-pulse" />
         </div>
       </div>
     </div>
@@ -36,15 +36,15 @@ export function ProductCard({ product }: { product: ProductRow }) {
   const img =
     publicImageUrl(product.generated_studio_image) ||
     publicImageUrl(product.image_url) ||
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80";
+    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80";
 
   const isNew = useMemo(() => {
     const createdAt = (product as any).created_at;
-    if (!createdAt) return false;
+    if (!createdAt) return true;
     const createdDate = new Date(createdAt);
     const diffTime = Math.abs(new Date().getTime() - createdDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 14;
+    return diffDays <= 30;
   }, [(product as any).created_at]);
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
@@ -54,75 +54,78 @@ export function ProductCard({ product }: { product: ProductRow }) {
   };
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-[#1A1A1A] card-hover-lift select-none">
-      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 items-start">
-        {isNew && (
-          <span className="bg-primary/95 backdrop-blur px-2.5 py-0.5 rounded-full text-[8.5px] font-black text-white tracking-widest uppercase shadow-md">
-            NEW ARRIVAL
-          </span>
-        )}
-        <span className="bg-black/75 backdrop-blur border border-gold/40 px-2 py-0.5 rounded-full text-[8px] font-bold text-gold tracking-wider uppercase flex items-center gap-1 shadow">
-          <ShieldCheck className="h-3 w-3 text-gold" /> VERIFIED
-        </span>
-      </div>
-
-      <button
-        onClick={handleToggleFavorite}
-        className="absolute top-3 right-3 z-10 rounded-full p-2 bg-[#0D0D0D]/80 backdrop-blur hover:bg-black text-foreground transition border border-border focus:outline-none shadow-md"
-        aria-label={isFav ? "Remove from favorites" : "Save to favorites"}
-      >
-        <Heart className={`h-3.5 w-3.5 transition-colors duration-300 ${isFav ? "fill-red-500 text-red-500" : "text-gray-300 hover:text-white"}`} />
-      </button>
-
-      <Link
-        to="/product/$slug"
-        params={{ slug: product.slug }}
-        className="block aspect-square overflow-hidden bg-[#141414] relative"
-      >
+    <div className="group relative flex flex-col overflow-hidden rounded-[14px] border border-[#2A2A2A] bg-[#1A1A1A] p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[#FFC107]/40 hover:shadow-2xl select-none">
+      <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden rounded-[10px] bg-[#141414]">
         <img
           src={img}
           alt={product.name}
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-108"
+          className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-      </Link>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div>
-          <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest block mb-1">
-            SKU · {product.code || "DBM-ABJ-101"}
-          </span>
-          <h3 className="font-display text-sm font-bold leading-tight text-white line-clamp-1 group-hover:text-gold transition-colors">
-            {product.name}
-          </h3>
-          {product.brand && (
-            <p className="mt-0.5 text-[10px] text-muted-foreground font-medium">
-              Brand: <span className="text-gray-300 font-semibold">{product.brand}</span>
-            </p>
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start">
+          {isNew && (
+            <span className="bg-[#0D47FF] text-white px-2.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black tracking-wider uppercase shadow-md">
+              NEW ARRIVAL
+            </span>
           )}
+          <span className="bg-[#0D0D0D]/85 backdrop-blur border border-[#FFC107]/60 text-[#FFC107] px-2 py-0.5 rounded-full text-[8px] font-extrabold tracking-wider uppercase flex items-center gap-1 shadow-sm">
+            <ShieldCheck className="h-2.5 w-2.5 text-[#FFC107]" />
+            <span>VERIFIED</span>
+          </span>
         </div>
 
+        <button
+          onClick={handleToggleFavorite}
+          className="absolute top-2 right-2 z-10 grid h-8 w-8 place-items-center rounded-full border border-[#333333] bg-[#0D0D0D]/80 backdrop-blur text-white hover:bg-black transition focus:outline-none shadow-md"
+          aria-label={isFav ? "Remove from favorites" : "Save to favorites"}
+        >
+          <Heart className={`h-3.5 w-3.5 transition-colors duration-300 ${isFav ? "fill-red-500 text-red-500" : "text-gray-300 hover:text-white"}`} />
+        </button>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-1.5 pt-3">
+        <span className="text-[9.5px] font-mono font-semibold text-gray-400 uppercase tracking-widest block">
+          SKU · {product.code || "DBM-ABJ-101"}
+        </span>
+
+        <h3 className="font-display text-xs sm:text-sm font-bold text-white leading-snug line-clamp-1 group-hover:text-[#FFC107] transition-colors">
+          {product.name}
+        </h3>
+
+        <p className="text-[11px] text-gray-400 font-medium leading-none">
+          Brand: <span className="text-gray-200 font-semibold">{product.brand || "DB Market Select"}</span>
+        </p>
+
         <div className="mt-1 flex items-baseline gap-1">
-          <span className="font-display text-lg font-black text-gold">
+          <span className="font-display text-sm sm:text-base font-black text-[#FFC107] tracking-tight">
             ₦{Number(product.price).toLocaleString()}
           </span>
-          <span className="text-[9.5px] font-medium text-muted-foreground">
+          <span className="text-[10px] font-normal text-gray-400">
             {product.color ? `/ ${product.color}` : "/ unit"}
           </span>
         </div>
 
-        <div className="mt-auto flex items-center gap-2 pt-3 border-t border-border/50">
-          <div className="shrink-0">
-            <AddToCollectionButton productId={product.id} compact />
-          </div>
+        <div className="mt-auto flex items-center gap-2 pt-3 border-t border-[#2A2A2A]">
+          <button
+            onClick={handleToggleFavorite}
+            className={`h-10 sm:h-11 px-3 rounded-[12px] border text-[11px] font-bold transition flex items-center justify-center gap-1.5 shrink-0 ${
+              isFav
+                ? "border-[#FFC107] bg-[#FFC107]/10 text-[#FFC107]"
+                : "border-[#333333] bg-[#141414] text-white hover:border-[#FFC107] hover:text-[#FFC107]"
+            }`}
+          >
+            <Bookmark className={`h-3.5 w-3.5 ${isFav ? "fill-[#FFC107]" : ""}`} />
+            <span>Save</span>
+          </button>
+
           <Link
             to="/product/$slug"
             params={{ slug: product.slug }}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white hover:bg-primary/90 btn-glow-blue transition shadow-md"
+            className="h-10 sm:h-11 flex-1 rounded-[12px] bg-[#0D47FF] hover:bg-[#0B3CDA] px-2.5 sm:px-3 text-[11px] font-extrabold text-white transition flex items-center justify-center gap-1.5 whitespace-nowrap shadow-md btn-glow-blue"
           >
-            <Eye className="h-3.5 w-3.5" />
-            <span>View Details</span>
+            <Eye className="h-3.5 w-3.5 text-white shrink-0" />
+            <span className="truncate">View Details</span>
           </Link>
         </div>
       </div>
