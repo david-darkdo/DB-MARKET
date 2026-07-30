@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Sparkles, Image, Layers, Cpu, ShieldCheck, Globe, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { runProductDetailsEngine } from "@/lib/product-details.functions";
-import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
 import { runProductPipeline } from "@/lib/ai-pipeline.functions";
 import { ImageUploader, ImageTile, publicImageUrl } from "@/components/ImageUploader";
 
@@ -26,7 +25,6 @@ function RebuiltEditProductPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generatingDetails, setGeneratingDetails] = useState(false);
-  const [generatingLifestyle, setGeneratingLifestyle] = useState(false);
   const [runningPipeline, setRunningPipeline] = useState(false);
 
   // Taxonomy options
@@ -41,10 +39,8 @@ function RebuiltEditProductPage() {
   // Section Toggles
   const [showAdvancedAi, setShowAdvancedAi] = useState(false);
   const [showSeoSection, setShowSeoSection] = useState(false);
-  const [showSearchSection, setShowSearchSection] = useState(false);
 
   const runDetailsFn = useServerFn(runProductDetailsEngine);
-  const generateLifestyleFn = useServerFn(generateStandaloneLifestyleImage);
   const runPipelineFn = useServerFn(runProductPipeline);
 
   const load = async () => {
@@ -97,7 +93,7 @@ function RebuiltEditProductPage() {
     try {
       const res = await runDetailsFn({ data: { productId: id } });
       if (res.ok) {
-        toast.success("Universal AI Engine: Product details generated!");
+        toast.success("Universal Product AI Engine: Product details generated!");
         await load();
       } else {
         toast.error("Failed to generate product details.");
@@ -106,27 +102,6 @@ function RebuiltEditProductPage() {
       toast.error(e.message ?? "Generation failed");
     } finally {
       setGeneratingDetails(false);
-    }
-  };
-
-  const handleGenerateLifestyle = async () => {
-    if (!p.image_url) {
-      toast.error("Original product image is required before generating an installed image.");
-      return;
-    }
-    setGeneratingLifestyle(true);
-    try {
-      const res = await generateLifestyleFn({ data: { productId: id } });
-      if (res.ok) {
-        toast.success("Installed architectural scene generated!");
-        await load();
-      } else {
-        toast.error("Failed to generate installed image.");
-      }
-    } catch (e: any) {
-      toast.error(e.message ?? "Generation failed");
-    } finally {
-      setGeneratingLifestyle(false);
     }
   };
 
@@ -142,7 +117,7 @@ function RebuiltEditProductPage() {
       }
     } catch (e: any) {
       toast.error(e.message ?? "Pipeline run failed");
-    } finally {
+    } fontally {
       setRunningPipeline(false);
     }
   };
@@ -359,19 +334,19 @@ function RebuiltEditProductPage() {
         </div>
       </section>
 
-      {/* SECTION 2: Images */}
+      {/* SECTION 2: Manual Product Images Upload */}
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 border-b border-border pb-3">
           <Image className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 2 — Images</h2>
+          <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 2 — Product Images (Manual Upload)</h2>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           {/* Original Image */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Original Manufacturer Image *</label>
-              <span className="text-[10px] text-muted-foreground">Source of Truth</span>
+              <label className="text-xs font-semibold text-foreground">Original Product Image *</label>
+              <span className="text-[10px] text-muted-foreground">Catalog / Feed Image</span>
             </div>
             {p.image_url ? (
               <ImageTile url={publicImageUrl(p.image_url) || p.image_url} onDelete={() => setField("image_url", null)} badge="Original" />
@@ -380,28 +355,17 @@ function RebuiltEditProductPage() {
             )}
           </div>
 
-          {/* Installed Image */}
+          {/* Installed Image (MANUAL UPLOAD ONLY) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Finished Installation Image</label>
-              <span className="text-[10px] text-muted-foreground">Lifestyle Reference</span>
+              <label className="text-xs font-semibold text-foreground">Installed Product Image (Optional)</label>
+              <span className="text-[10px] text-muted-foreground">Real-World Installation</span>
             </div>
             {p.generated_installed_image ? (
-              <ImageTile url={publicImageUrl(p.generated_installed_image) || p.generated_installed_image} onDelete={() => setField("generated_installed_image", null)} badge="Installed Scene" />
+              <ImageTile url={publicImageUrl(p.generated_installed_image) || p.generated_installed_image} onDelete={() => setField("generated_installed_image", null)} badge="Installed Product" />
             ) : (
-              <ImageUploader multiple={false} onUploaded={(paths) => setField("generated_installed_image", paths[0])} label="Upload Installed Image" />
+              <ImageUploader multiple={false} onUploaded={(paths) => setField("generated_installed_image", paths[0])} label="Upload Installed Product Image" />
             )}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleGenerateLifestyle}
-                disabled={generatingLifestyle || !p.image_url}
-                className="w-full flex items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Generating Architectural Scene…" : "Generate Installed Image"}
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -440,7 +404,7 @@ function RebuiltEditProductPage() {
         </div>
       </section>
 
-      {/* SECTION 4: Advanced AI Operations (Collapsed by default) */}
+      {/* SECTION 4: Universal Product AI Operations */}
       <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button
           type="button"
@@ -449,15 +413,14 @@ function RebuiltEditProductPage() {
         >
           <div className="flex items-center gap-2">
             <Cpu className="h-4 w-4 text-primary" />
-            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 4 — Advanced AI Operations</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Universal Engine</span>
+            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 4 — Universal Product AI Engine</h2>
           </div>
           {showAdvancedAi ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
 
         {showAdvancedAi && (
           <div className="p-5 border-t border-border space-y-4 bg-muted/10">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={handleGenerateDetails}
@@ -465,17 +428,7 @@ function RebuiltEditProductPage() {
                 className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingDetails ? "Generating Details…" : "Generate Product Intelligence"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleGenerateLifestyle}
-                disabled={generatingLifestyle || !p.image_url}
-                className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Generating Scene…" : "Generate Installed Scene"}
+                {generatingDetails ? "Generating Details…" : "Generate Descriptions & SEO"}
               </button>
 
               <button
@@ -485,24 +438,14 @@ function RebuiltEditProductPage() {
                 className="flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {runningPipeline ? "Running Pipeline…" : "Run Universal AI Pipeline"}
+                {runningPipeline ? "Running Pipeline…" : "Run Universal Product AI"}
               </button>
-            </div>
-
-            <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-2 font-mono text-muted-foreground">
-              <div className="flex items-center justify-between text-foreground font-semibold">
-                <span>AI Execution Tracking</span>
-                <span className="text-[10px] text-primary uppercase">{p.processing_state || "Completed"}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Last processed: {p.last_processed_at ? new Date(p.last_processed_at).toLocaleString() : "Not processed yet"}
-              </p>
             </div>
           </div>
         )}
       </section>
 
-      {/* SECTION 5: SEO (Collapsed by default) */}
+      {/* SECTION 5: SEO */}
       <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button
           type="button"

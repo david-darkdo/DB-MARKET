@@ -6,6 +6,11 @@ async function callLLM(provider: any, prompt: string, system: string): Promise<s
   return provider.callLLM(prompt, system);
 }
 
+/**
+ * Universal Product AI Pipeline Execution
+ * Runs Universal Product Intelligence Engine for Descriptions, SEO & Metadata.
+ * AI image generation for lifestyle/installed scenes has been completely removed.
+ */
 export const runProductPipeline = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: { productId: string }) => {
@@ -30,13 +35,6 @@ export const runProductPipeline = createServerFn({ method: "POST" })
       
       if (!detailsRes.ok) {
         throw new Error("Universal Product AI Engine failed");
-      }
-
-      if (product.image_url) {
-        const { generateStandaloneLifestyleImage } = await import("./lifestyle-image.functions");
-        await generateStandaloneLifestyleImage({ data: { productId } }).catch((err) => {
-          console.warn("Lifestyle image generation step non-critical warning:", err);
-        });
       }
 
       await supabase.from("products").update({
@@ -92,57 +90,6 @@ export const testLLMConnection = createServerFn({ method: "POST" })
         await supabase.from("app_settings").update({
           last_provider_call_success: false,
           last_provider_error: `LLM test failed: ${e.message || String(e)}`
-        } as any).eq("id", settingsRow.id);
-      }
-      return {
-        ok: false,
-        error: e.message || String(e),
-        details: e instanceof AIProviderError || e?.name === "AIProviderError" ? {
-          url: e.url,
-          requestHeaders: e.requestHeaders,
-          requestBody: e.requestBody,
-          responseBody: e.responseBody,
-          status: e.status
-        } : null
-      };
-    }
-  });
-
-export const testImageConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator((data: { prompt: string }) => data)
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    let settingsRow: any = null;
-    try {
-      const { data: settings } = await supabase.from("app_settings").select("*").limit(1).maybeSingle();
-      settingsRow = settings;
-      const config = settings ? {
-        activeProvider: settings.active_ai_provider || "openai",
-        openaiLlmModel: settings.openai_llm_model,
-        openaiImageModel: settings.openai_image_model,
-        openaiImageSize: settings.openai_image_size || "1024x1024",
-        geminiLlmModel: settings.gemini_llm_model,
-        geminiImageModel: settings.gemini_image_model,
-        geminiUseVertex: settings.gemini_use_vertex ?? false
-      } : undefined;
-      const provider = getAIProvider(config);
-      const buf = await provider.generateImage(data.prompt);
-      const b64 = buf.toString("base64");
-
-      if (settingsRow?.id) {
-        await supabase.from("app_settings").update({
-          last_provider_call_success: true,
-          last_provider_error: null
-        } as any).eq("id", settingsRow.id);
-      }
-
-      return { ok: true, b64 };
-    } catch (e: any) {
-      if (settingsRow?.id) {
-        await supabase.from("app_settings").update({
-          last_provider_call_success: false,
-          last_provider_error: `Image test failed: ${e.message || String(e)}`
         } as any).eq("id", settingsRow.id);
       }
       return {

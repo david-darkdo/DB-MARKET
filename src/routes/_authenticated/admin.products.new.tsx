@@ -6,11 +6,10 @@ import { toast } from "sonner";
 import { Sparkles, Globe, Search, ChevronDown, ChevronUp, Image, Layers, Cpu, ShieldCheck } from "lucide-react";
 import { runProductPipeline } from "@/lib/ai-pipeline.functions";
 import { runProductDetailsEngine } from "@/lib/product-details.functions";
-import { generateStandaloneLifestyleImage } from "@/lib/lifestyle-image.functions";
 import { ImageUploader, ImageTile, publicImageUrl } from "@/components/ImageUploader";
 
 export const Route = createFileRoute("/_authenticated/admin/products/new")({
-  head: () => ({ meta: [{ title: "Create New Product — Admin Panel" }] }),
+  head: () => ({ meta: [{ title: "Upload New Product — Admin Panel" }] }),
   component: RebuiltNewProductPage,
 });
 
@@ -36,13 +35,10 @@ function RebuiltNewProductPage() {
   const [saving, setSaving] = useState(false);
   const [isAiMode, setIsAiMode] = useState(true);
   const [generatingDetails, setGeneratingDetails] = useState(false);
-  const [generatingLifestyle, setGeneratingLifestyle] = useState(false);
-  const [runningPipeline, setRunningPipeline] = useState(false);
 
   // Collapsible section toggles
   const [showAdvancedAi, setShowAdvancedAi] = useState(false);
   const [showSeoSection, setShowSeoSection] = useState(false);
-  const [showSearchSection, setShowSearchSection] = useState(false);
 
   // Uploaded media paths
   const [originalPath, setOriginalPath] = useState<string | null>(null);
@@ -108,14 +104,6 @@ function RebuiltNewProductPage() {
   const filteredSubs = useMemo(() => subs.filter((s) => s.category_id === category_id), [subs, category_id]);
   const filteredFams = useMemo(() => fams.filter((f) => f.subcategory_id === subcategory_id), [fams, subcategory_id]);
 
-  const handleDescriptionChange = (val: string) => {
-    setForm((prev) => ({
-      ...prev,
-      description: val,
-      seo_description: val,
-    }));
-  };
-
   const handleSeoDescriptionChange = (val: string) => {
     setForm((prev) => ({
       ...prev,
@@ -125,7 +113,6 @@ function RebuiltNewProductPage() {
   };
 
   const runDetailsFn = useServerFn(runProductDetailsEngine);
-  const generateLifestyleFn = useServerFn(generateStandaloneLifestyleImage);
 
   // Universal Product AI Execution
   const handleGenerateDetailsOnNew = async () => {
@@ -185,7 +172,7 @@ function RebuiltNewProductPage() {
           misspellings: Array.isArray(d.misspellings) ? d.misspellings.join(", ") : (d.misspellings || ""),
         }));
 
-        toast.success("Universal AI Engine: Product intelligence generated successfully!");
+        toast.success("Universal Product AI Engine: Product intelligence generated!");
       }
       await supabase.from("products").delete().eq("id", tempProduct.id);
     } catch (e: any) {
@@ -193,64 +180,6 @@ function RebuiltNewProductPage() {
     } finally {
       setGeneratingDetails(false);
     }
-  };
-
-  const handleGenerateLifestyleOnNew = async () => {
-    if (!originalPath) {
-      toast.error("Please upload an Original Product Image first.");
-      return;
-    }
-    setGeneratingLifestyle(true);
-    try {
-      const slugBase = (form.name || "installed").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const tempSlug = `draft-img-${slugBase}-${Math.random().toString(36).slice(2, 6)}`;
-
-      const { data: tempProduct, error: tempErr } = await supabase.from("products").insert({
-        name: form.name.trim() || "Sample Product",
-        code: form.code || previewCode || "TEMP-002",
-        type_id: type_id || null,
-        category_id: category_id || null,
-        subcategory_id: subcategory_id || null,
-        family_id: family_id || null,
-        production_name: form.production_name || null,
-        finish_name: form.finish_name || null,
-        brand: form.brand || null,
-        size: form.size || null,
-        price: Number(form.price) || 0,
-        status: "draft",
-        processing_state: "pending",
-        slug: tempSlug,
-        image_url: originalPath
-      } as any).select("id").single();
-
-      if (tempErr || !tempProduct?.id) {
-        throw new Error(tempErr?.message || "Failed to create draft for lifestyle generation");
-      }
-
-      const res = await generateLifestyleFn({ data: { productId: tempProduct.id } });
-      if (res.ok && res.imageUrl) {
-        setInstalledPath(res.imageUrl);
-        toast.success("Installed architectural scene generated successfully!");
-      } else {
-        toast.error("Failed to generate installed image");
-      }
-      await supabase.from("products").delete().eq("id", tempProduct.id);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to generate installed image");
-    } finally {
-      setGeneratingLifestyle(false);
-    }
-  };
-
-  const handleRunFullPipelineOnNew = async () => {
-    if (!form.name.trim()) return toast.error("Product name required");
-    setRunningPipeline(true);
-    await handleGenerateDetailsOnNew();
-    if (originalPath) {
-      await handleGenerateLifestyleOnNew();
-    }
-    setRunningPipeline(false);
-    toast.success("Universal AI pipeline completed!");
   };
 
   // CREATE PRODUCT HANDLER
@@ -341,7 +270,7 @@ function RebuiltNewProductPage() {
           asset_type: "installed",
           asset_url: installedPath,
           is_primary: false,
-          generated_by_ai: true,
+          generated_by_ai: false,
         }] : [])
       ] as any);
 
@@ -359,7 +288,7 @@ function RebuiltNewProductPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground uppercase">Upload New Product</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Universal AI Product Intelligence Architecture</p>
+          <p className="text-xs text-muted-foreground mt-0.5">DB Market Product Management System</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -474,7 +403,7 @@ function RebuiltNewProductPage() {
             <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Brand</label>
             <input
               type="text"
-              placeholder="e.g. Virony"
+              placeholder="e.g. DB Market Showroom"
               value={form.brand}
               onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
               className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
@@ -535,19 +464,19 @@ function RebuiltNewProductPage() {
         </div>
       </section>
 
-      {/* SECTION 2: Images */}
+      {/* SECTION 2: Manual Product Images Upload */}
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 border-b border-border pb-3">
           <Image className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 2 — Images</h2>
+          <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 2 — Product Images (Manual Upload)</h2>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {/* Original Image */}
+          {/* Original Product Image */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Original Manufacturer Image *</label>
-              <span className="text-[10px] text-muted-foreground">Source of Truth</span>
+              <label className="text-xs font-semibold text-foreground">Original Product Image *</label>
+              <span className="text-[10px] text-muted-foreground">Catalog / Feed Image</span>
             </div>
             {originalPath ? (
               <ImageTile url={publicImageUrl(originalPath) || originalPath} onDelete={() => setOriginalPath(null)} badge="Original" />
@@ -556,28 +485,17 @@ function RebuiltNewProductPage() {
             )}
           </div>
 
-          {/* Installed Image */}
+          {/* Installed Product Image (MANUAL UPLOAD ONLY) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Finished Installation Image</label>
-              <span className="text-[10px] text-muted-foreground">Lifestyle Reference</span>
+              <label className="text-xs font-semibold text-foreground">Installed Product Image (Optional)</label>
+              <span className="text-[10px] text-muted-foreground">Real-World Installation</span>
             </div>
             {installedPath ? (
-              <ImageTile url={publicImageUrl(installedPath) || installedPath} onDelete={() => setInstalledPath(null)} badge="Installed Scene" />
+              <ImageTile url={publicImageUrl(installedPath) || installedPath} onDelete={() => setInstalledPath(null)} badge="Installed Product" />
             ) : (
-              <ImageUploader multiple={false} onUploaded={(paths) => setInstalledPath(paths[0])} label="Upload Installed Image" />
+              <ImageUploader multiple={false} onUploaded={(paths) => setInstalledPath(paths[0])} label="Upload Installed Product Image" />
             )}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleGenerateLifestyleOnNew}
-                disabled={generatingLifestyle || !originalPath}
-                className="w-full flex items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Generating Architectural Scene…" : "Generate Installed Image"}
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -599,7 +517,7 @@ function RebuiltNewProductPage() {
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${isAiMode ? "translate-x-6" : "translate-x-1"}`} />
             </button>
             <span className="text-xs font-semibold text-foreground">
-              {isAiMode ? "AI Mode Active (Auto Intelligence Routing)" : "Manual Mode (Direct Metadata Entry)"}
+              {isAiMode ? "AI Mode Active (Auto Description & SEO Generation)" : "Manual Mode"}
             </span>
           </div>
 
@@ -624,7 +542,7 @@ function RebuiltNewProductPage() {
         </div>
       </section>
 
-      {/* SECTION 4: Advanced AI (Collapsed by default) */}
+      {/* SECTION 4: Universal Product AI Operations */}
       <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button
           type="button"
@@ -633,50 +551,29 @@ function RebuiltNewProductPage() {
         >
           <div className="flex items-center gap-2">
             <Cpu className="h-4 w-4 text-primary" />
-            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 4 — Advanced AI Operations</h2>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded font-mono">Universal Engine</span>
+            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Section 4 — Universal Product AI Engine</h2>
           </div>
           {showAdvancedAi ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
 
         {showAdvancedAi && (
           <div className="p-5 border-t border-border space-y-4 bg-muted/10">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div>
               <button
                 type="button"
                 onClick={handleGenerateDetailsOnNew}
                 disabled={generatingDetails || !form.name.trim()}
-                className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingDetails ? "Generating Details…" : "Generate Product Intelligence"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleGenerateLifestyleOnNew}
-                disabled={generatingLifestyle || !originalPath}
-                className="flex items-center justify-center gap-2 rounded border border-primary/40 bg-primary/10 px-4 py-3 text-xs font-bold text-primary hover:bg-primary/20 transition disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4" />
-                {generatingLifestyle ? "Generating Scene…" : "Generate Installed Scene"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRunFullPipelineOnNew}
-                disabled={runningPipeline || !form.name.trim()}
-                className="flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4" />
-                {runningPipeline ? "Running Pipeline…" : "Run Universal AI Pipeline"}
+                {generatingDetails ? "Generating Product Intelligence…" : "Generate Descriptions & SEO Intelligence"}
               </button>
             </div>
           </div>
         )}
       </section>
 
-      {/* SECTION 5: SEO (Collapsed by default) */}
+      {/* SECTION 5: SEO */}
       <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button
           type="button"

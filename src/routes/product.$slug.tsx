@@ -3,13 +3,14 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { ProductCard } from "@/components/ProductCard";
 import { fetchProductBySlug, fetchRelatedProducts } from "@/lib/catalog";
-import { ArrowLeft, Heart, ShoppingBag, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Heart, ShoppingBag, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { publicImageUrl } from "@/components/ImageUploader";
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/useFavorites";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const productQuery = (slug: string) =>
   queryOptions({
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/product/$slug")({
     const product = await context.queryClient.ensureQueryData(productQuery(params.slug));
     context.queryClient.ensureQueryData(relatedQuery(product.family_id, product.id));
 
+    // Fetch taxonomy parents
     const [typeRes, categoryRes, subcategoryRes, familyRes] = await Promise.all([
       product.type_id ? supabase.from("product_types").select("name, slug").eq("id", product.type_id).maybeSingle() : Promise.resolve({ data: null }),
       product.category_id ? supabase.from("categories").select("name, slug").eq("id", product.category_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -84,9 +86,9 @@ export const Route = createFileRoute("/product/$slug")({
   notFoundComponent: () => (
     <AppShell>
       <div className="container-app py-16 text-center">
-        <h1 className="font-display text-2xl">Product not found</h1>
-        <Link to="/" className="mt-4 inline-block text-primary underline">
-          Back to feed
+        <h1 className="font-display text-2xl font-bold">Product not found</h1>
+        <Link to="/" className="mt-4 inline-block text-primary underline font-medium text-xs">
+          Return to Marketplace
         </Link>
       </div>
     </AppShell>
@@ -96,7 +98,7 @@ export const Route = createFileRoute("/product/$slug")({
       <div className="container-app py-16 text-center text-sm text-destructive">
         <h2 className="font-semibold text-lg">Failed to load product page</h2>
         <p className="mt-2 text-muted-foreground">{error.message}</p>
-        <Link to="/" className="mt-4 inline-block text-primary underline">Back to feed</Link>
+        <Link to="/" className="mt-4 inline-block text-primary underline">Return Home</Link>
       </div>
     </AppShell>
   ),
@@ -113,12 +115,14 @@ function ProductPage() {
   const isFav = isFavorite(product.id);
   const [recommendations, setRecommendations] = useState<any[]>([]);
 
+  // Gallery slider states
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [lightboxScale, setLightboxScale] = useState(1);
 
   const studio = publicImageUrl(product.generated_studio_image) || publicImageUrl(product.image_url);
-  const installed = publicImageUrl(product.generated_installed_image) || publicImageUrl(product.image_url);
+  // STRICT INSTALLED IMAGE RESOLUTION — NEVER FALLBACK TO ORIGINAL IMAGE
+  const installed = product.generated_installed_image ? publicImageUrl(product.generated_installed_image) : null;
 
   const galleryImages = useMemo(() => {
     return [studio, installed].filter(Boolean) as string[];
@@ -128,6 +132,7 @@ function ProductPage() {
     if (!product?.id) return;
 
     if (user?.id) {
+      // Track page views
       const trackEvent = async () => {
         const { data: profile } = await supabase
           .from("profiles")
@@ -145,6 +150,7 @@ function ProductPage() {
       void trackEvent();
     }
 
+    // Load recommendations
     const loadRecs = async () => {
       const { data } = await supabase
         .from("products")
@@ -161,6 +167,7 @@ function ProductPage() {
     void toggleFavorite(product.id, product);
   };
 
+  // Breadcrumbs config
   const breadcrumbs = useMemo(() => {
     const list = [{ label: "Home", path: "/" }];
     if (taxonomy.type?.name) {
@@ -176,8 +183,56 @@ function ProductPage() {
     return list;
   }, [taxonomy, product]);
 
+  // Structured Data (JSON-LD)
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: galleryImages,
+    description: product.short_description || product.seo_description || "Premium architectural building material.",
+    sku: product.code,
+    mpn: product.code,
+    brand: {
+      "@type": "Brand",
+      name: product.brand || "DB Market",
+    },
+    offers: {
+      "@type": "Offer",
+      url: `${origin}/product/${product.slug}`,
+      priceCurrency: "NGN",
+      price: product.price,
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbs.map((b, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      name: b.label,
+      item: `${origin}${b.path}`,
+    })),
+  };
+
+  const faqSchema = product.faq && Array.isArray(product.faq) && (product.faq as any[]).length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: (product.faq as any[]).map((f) => ({
+      "@type": "Question",
+      name: f.question || f.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: f.answer || f.a,
+      },
+    })),
+  } : null;
+
   return (
     <AppShell>
+      {/* Lightbox Modal */}
       {lightboxImg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md">
           <div className="absolute top-4 right-4 z-50 flex gap-2">
@@ -211,108 +266,156 @@ function ProductPage() {
         </div>
       )}
 
-      <div className="container-app pt-4 pb-16">
-        <nav className="flex items-center gap-1.5 overflow-x-auto pb-3 text-[10px] uppercase tracking-wider text-gray-400 scrollbar-none">
+      {/* JSON-LD Structured Data */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
+      {faqSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      )}
+      {product.structured_data && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(product.structured_data) }} />
+      )}
+
+      <div className="container-app pt-2 pb-10">
+        {/* Breadcrumb Row */}
+        <nav className="flex items-center gap-1.5 overflow-x-auto pb-3 text-[10px] uppercase tracking-wider text-muted-foreground scrollbar-none">
           {breadcrumbs.map((b, index) => (
             <span key={index} className="flex items-center gap-1.5 shrink-0">
-              {index > 0 && <span className="text-gray-600">/</span>}
+              {index > 0 && <span className="text-muted-foreground/30">/</span>}
               {index === breadcrumbs.length - 1 ? (
-                <span className="font-semibold text-white truncate max-w-[140px]">{b.label}</span>
+                <span className="font-semibold text-foreground truncate max-w-[120px]">{b.label}</span>
               ) : (
-                <Link to={b.path} className="hover:text-[#FFC107] transition">{b.label}</Link>
+                <Link to={b.path} className="hover:text-primary transition">{b.label}</Link>
               )}
             </span>
           ))}
         </nav>
 
-        <div className="mt-4 grid gap-6 md:grid-cols-2">
-          <div className="relative overflow-hidden rounded-[14px] border border-[#2A2A2A] bg-[#1A1A1A] aspect-square flex items-center justify-center p-2">
-            {galleryImages[activeImgIndex] ? (
+        {/* Product Gallery Grid */}
+        <div className={`mt-3 grid gap-6 ${installed ? "md:grid-cols-2" : "max-w-2xl mx-auto"}`}>
+          {/* Main Studio Image */}
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm aspect-square flex items-center justify-center">
+            {studio ? (
               <img
-                src={galleryImages[activeImgIndex]}
+                src={studio}
                 alt={product.name}
-                onClick={() => setLightboxImg(galleryImages[activeImgIndex])}
-                className="w-full h-full object-cover rounded-[10px] cursor-zoom-in hover:scale-[1.02] transition-transform duration-300"
+                onClick={() => setLightboxImg(studio)}
+                className="w-full h-full object-cover cursor-zoom-in hover:scale-[1.01] transition-transform duration-300"
               />
             ) : (
-              <div className="text-xs text-gray-500 italic">No image asset</div>
+              <div className="text-xs text-muted-foreground italic">No image assets</div>
             )}
           </div>
 
-          <div className="space-y-6 flex flex-col justify-between">
-            <div className="space-y-3">
-              <span className="text-[10px] font-mono font-semibold text-[#FFC107] uppercase tracking-widest block">
-                SKU · {product.code || "DBM-ABJ-101"}
-              </span>
-
-              <h1 className="font-display text-2xl sm:text-4xl font-black text-white leading-tight">
-                {product.name}
-              </h1>
-
-              <p className="text-xs text-gray-400 font-medium">
-                Brand: <span className="text-white font-bold">{product.brand || "DB Market Select"}</span>
-              </p>
-
-              <div className="flex items-baseline gap-2 pt-2">
-                <span className="font-display text-3xl font-black text-[#FFC107]">
-                  ₦{Number(product.price).toLocaleString()}
+          {/* Installed Product Showcase (ONLY DISPLAYED IF INSTALLED IMAGE EXISTS) */}
+          {installed && (
+            <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm aspect-square md:aspect-auto h-full flex flex-col justify-end p-6">
+              <img
+                src={installed}
+                alt={`${product.name} installed view`}
+                onClick={() => setLightboxImg(installed)}
+                className="absolute inset-0 w-full h-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
+              <div className="relative z-10 text-white space-y-1">
+                <span className="inline-block px-2.5 py-0.5 rounded bg-primary/90 text-[9px] font-bold uppercase tracking-wider text-primary-foreground backdrop-blur">
+                  Installed Product Image
                 </span>
-                <span className="text-xs text-gray-400 font-normal">
-                  {product.color ? `/ ${product.color}` : "/ unit"}
-                </span>
+                <h4 className="font-display text-sm font-bold tracking-tight">Real-World Installation Showcase</h4>
+                <p className="text-[10px] text-gray-200 line-clamp-2">
+                  View how this finish scales inside completed luxury architectural and residential projects.
+                </p>
               </div>
+            </div>
+          )}
+        </div>
 
-              {product.short_description && (
-                <div className="rounded-[14px] border border-[#2A2A2A] bg-[#1A1A1A] p-4 text-xs text-gray-300 leading-relaxed mt-4">
-                  {product.short_description}
+        {/* Product Info & Specs */}
+        <div className="mt-8 space-y-6">
+          <div>
+            <p className="text-xs font-mono uppercase tracking-[0.18em] text-primary font-bold">
+              {product.brand || "DB Market"} · Code {product.code}
+            </p>
+            <h1 className="mt-1 font-display text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight uppercase">
+              {product.name}
+            </h1>
+            <p className="mt-1.5 font-display text-2xl font-bold text-primary">
+              ₦{Number(product.price).toLocaleString()}
+              <span className="ml-1 text-sm font-normal text-muted-foreground">/unit</span>
+            </p>
+          </div>
+
+          {product.short_description && (
+            <div className="rounded-xl border border-border/80 bg-card p-4 text-xs leading-relaxed text-muted-foreground max-w-prose shadow-sm">
+              {product.short_description}
+            </div>
+          )}
+
+          {/* Technical Specifications */}
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs max-w-xl">
+            {taxonomy.subcategory?.name && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 shadow-sm">
+                <dt className="text-[9px] font-bold uppercase tracking-wider text-primary">Subcategory</dt>
+                <dd className="mt-1 font-semibold text-foreground text-xs">{taxonomy.subcategory.name}</dd>
+              </div>
+            )}
+            {[
+              ["Color", product.color],
+              ["Material", product.material],
+              ["Finish", product.finish],
+            ].map(([k, v]) =>
+              v ? (
+                <div key={k as string} className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                  <dt className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{k}</dt>
+                  <dd className="mt-1 font-semibold text-foreground text-xs">{v}</dd>
                 </div>
-              )}
+              ) : null,
+            )}
+          </dl>
 
-              <dl className="grid grid-cols-2 gap-3 pt-2 text-xs">
-                {[
-                  ["Material", product.material],
-                  ["Finish", product.finish],
-                ].map(([k, v]) =>
-                  v ? (
-                    <div key={k as string} className="rounded-[12px] border border-[#2A2A2A] bg-[#1A1A1A] p-3">
-                      <dt className="text-[9.5px] font-bold uppercase tracking-wider text-gray-400">{k}</dt>
-                      <dd className="mt-1 font-semibold text-white text-xs">{v}</dd>
-                    </div>
-                  ) : null
-                )}
-              </dl>
-            </div>
-
-            <div className="flex items-center gap-3 pt-4 border-t border-[#2A2A2A]">
-              <div className="flex-1">
-                <AddToCollectionButton
-                  productId={product.id}
-                  className="h-12 w-full rounded-[12px] bg-[#0D47FF] hover:bg-[#0B3CDA] text-xs font-black uppercase tracking-wider text-white transition flex items-center justify-center gap-2 shadow-lg btn-glow-blue"
-                />
+          {/* FAQ Section */}
+          {product.faq && Array.isArray(product.faq) && (product.faq as any[]).length > 0 && (
+            <div className="rounded-xl border border-border/80 bg-card p-4 text-xs space-y-3 max-w-prose shadow-sm">
+              <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/40 pb-2">Frequently Asked Questions</h3>
+              <div className="space-y-4">
+                {(product.faq as any[]).map((f, i) => (
+                  <div key={i} className="space-y-1">
+                    <h4 className="font-semibold text-xs text-foreground flex gap-1.5 items-start">
+                      <span className="text-primary font-bold">Q:</span>
+                      <span>{f.question || f.q}</span>
+                    </h4>
+                    <p className="pl-4 text-xs text-muted-foreground leading-relaxed">{f.answer || f.a}</p>
+                  </div>
+                ))}
               </div>
-
-              <button
-                onClick={handleToggleFavorite}
-                className={`h-12 px-5 rounded-[12px] border text-xs font-bold transition flex items-center justify-center gap-2 ${
-                  isFav
-                    ? "border-[#FFC107] bg-[#FFC107]/10 text-[#FFC107]"
-                    : "border-[#333333] bg-[#141414] text-white hover:border-[#FFC107]"
-                }`}
-              >
-                <Heart className={`h-4 w-4 ${isFav ? "fill-[#FFC107] text-[#FFC107]" : "text-gray-300"}`} />
-                <span>{isFav ? "Saved" : "Save"}</span>
-              </button>
             </div>
+          )}
+
+          {/* Actions Bar */}
+          <div className="flex gap-2.5 max-w-md pt-2">
+            <AddToCollectionButton
+              productId={product.id}
+              className="flex-1 rounded-xl bg-primary py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/95 transition shadow-sm"
+            />
+
+            <button
+              onClick={handleToggleFavorite}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition ${
+                isFav
+                  ? "border-red-500/50 bg-red-500/10 text-red-500"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+            </button>
           </div>
         </div>
 
+        {/* Related Products Grid */}
         {related.length > 0 && (
-          <section className="mt-16 border-t border-[#2A2A2A] pt-8">
-            <h2 className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FFC107]">
-              Related Building Materials
-            </h2>
-            <p className="font-display text-xl font-black text-white mt-1">From the same collection</p>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <section className="mt-16 border-t border-border pt-10">
+            <h2 className="font-display text-lg font-bold tracking-tight text-foreground uppercase">Related Products</h2>
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
               {related.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
