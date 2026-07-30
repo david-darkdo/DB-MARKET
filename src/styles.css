@@ -27,13 +27,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-[#FFC107]: var-[#FFC107];
   --color-gold: var(--gold);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -162,7 +156,7 @@
   animation: cartBounce 0.5s ease-out;
 }
 
-@utility container-app {
+.container-app {
   width: 100%;
   max-width: 84rem;
   margin-inline: auto;
@@ -170,7 +164,7 @@
 }
 
 @media (min-width: 640px) {
-  @utility container-app {
+  .container-app {
     padding-inline: 1.25rem;
   }
 }
