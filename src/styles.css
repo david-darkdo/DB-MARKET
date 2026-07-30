@@ -130,7 +130,7 @@
 
 @keyframes cardLift {
   0% { transform: translateY(0); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
-  100% { transform: translateY(-6px); box-shadow: 0 16px 32px rgba(13, 71, 255, 0.15), 0 8px 16px rgba(0, 0, 0, 0.4); }
+  100% { transform: translateY(-6px); box-shadow: 0 16px 36px rgba(13, 71, 255, 0.15), 0 8px 16px rgba(0, 0, 0, 0.4); }
 }
 
 .btn-glow-blue {
@@ -166,7 +166,13 @@
   width: 100%;
   max-width: 84rem;
   margin-inline: auto;
-  padding-inline: 1.25rem;
+  padding-inline: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  @utility container-app {
+    padding-inline: 1.25rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

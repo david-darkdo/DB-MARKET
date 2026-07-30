@@ -7,39 +7,66 @@ import { deleteCloudinaryImage } from "@/lib/cloudinary";
 export function publicImageUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  // Fallback to legacy Supabase storage url if it's a relative path key
+  
+  // Public URL from Supabase storage product-images bucket
   const BUCKET = "product-images";
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
 async function uploadOne(file: File, productId?: string): Promise<string> {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || process.env.CLOUDINARY_UPLOAD_PRESET;
 
-  if (!cloudName || !uploadPreset) {
-    throw new Error("Missing Cloudinary configuration (VITE_CLOUDINARY_CLOUD_NAME / VITE_CLOUDINARY_UPLOAD_PRESET)");
+  // 1. Try Cloudinary Upload if credentials exist
+  if (cloudName && uploadPreset) {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", uploadPreset);
+      if (productId) {
+        formData.append("folder", `products/${productId}`);
+      }
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.secure_url) {
+          console.log("[Cloudinary] Direct upload success:", data.secure_url);
+          return data.secure_url;
+        }
+      } else {
+        const text = await res.text();
+        console.warn("[Cloudinary] Upload response error, falling back to Supabase Storage:", text);
+      }
+    } catch (err) {
+      console.warn("[Cloudinary] Exception during upload, falling back to Supabase Storage:", err);
+    }
   }
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-  if (productId) {
-    formData.append("folder", `products/${productId}`);
-  }
+  // 2. Direct Fallback to Supabase Storage product-images bucket
+  console.log("[Supabase Storage] Uploading image to product-images bucket...");
+  const BUCKET = "product-images";
+  const fileExt = file.name.split('.').pop() || 'jpg';
+  const filePath = `${productId ? `${productId}/` : ''}${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: formData,
+  const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: true
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Cloudinary upload failed: ${text}`);
+  if (error) {
+    console.error("[Supabase Storage] Upload failed:", error);
+    throw new Error(`Storage upload failed: ${error.message}`);
   }
 
-  const data = await res.json();
-  return data.secure_url;
+  const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
+  console.log("[Supabase Storage] Successfully uploaded:", publicUrlData.publicUrl);
+  return publicUrlData.publicUrl;
 }
 
 /**
@@ -72,7 +99,8 @@ export function ImageUploader({
       const uploaded: string[] = [];
       for (const f of list) {
         try {
-          uploaded.push(await uploadOne(f, productId));
+          const url = await uploadOne(f, productId);
+          uploaded.push(url);
         } catch (e: any) {
           toast.error(`Upload failed: ${e.message || e}`);
         }
@@ -95,18 +123,18 @@ export function ImageUploader({
         setDragging(false);
         if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
       }}
-      className={`rounded-lg border-2 border-dashed transition ${
-        dragging ? "border-primary bg-primary/5" : "border-border bg-background"
+      className={`rounded-xl border-2 border-dashed transition ${
+        dragging ? "border-[#0D47FF] bg-[#0D47FF]/10" : "border-[#2A2A2A] bg-[#141414]"
       } ${compact ? "p-3" : "p-5"}`}
     >
       <div className="flex flex-col items-center justify-center gap-2 text-center">
         {busy ? (
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <Loader2 className="h-6 w-6 animate-spin text-[#FFC107]" />
         ) : (
-          <UploadCloud className="h-6 w-6 text-muted-foreground" />
+          <UploadCloud className="h-6 w-6 text-gray-400" />
         )}
-        <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs font-bold text-white uppercase tracking-wider">{label}</div>
+        <div className="text-[11px] text-gray-400">
           Drag & drop, or use the buttons below
         </div>
         <div className="mt-1 flex flex-wrap justify-center gap-2">
@@ -114,7 +142,7 @@ export function ImageUploader({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={busy}
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:border-primary disabled:opacity-50"
+            className="rounded-lg border border-[#333333] bg-[#1A1A1A] px-4 py-2 text-xs font-bold text-white hover:border-[#FFC107] disabled:opacity-50 transition"
           >
             Choose files
           </button>
@@ -122,7 +150,7 @@ export function ImageUploader({
             type="button"
             onClick={() => cameraRef.current?.click()}
             disabled={busy}
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:border-primary disabled:opacity-50 md:hidden"
+            className="rounded-lg border border-[#333333] bg-[#1A1A1A] px-4 py-2 text-xs font-bold text-white hover:border-[#FFC107] disabled:opacity-50 md:hidden transition"
           >
             Take photo
           </button>
@@ -167,39 +195,39 @@ export function ImageTile({
   badge?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-lg border border-border bg-card">
+    <div className="relative overflow-hidden rounded-xl border border-[#2A2A2A] bg-[#1A1A1A]">
       <img src={url} alt="" className="aspect-square w-full object-cover" />
       {badge && (
-        <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white">
+        <span className="absolute left-1.5 top-1.5 rounded-full bg-black/80 px-2 py-0.5 text-[9px] uppercase tracking-wider text-[#FFC107] font-bold">
           {badge}
         </span>
       )}
       {isPrimary && (
-        <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
-          <Star className="h-3 w-3" /> Primary
+        <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-[#0D47FF] px-2 py-0.5 text-[9px] font-extrabold text-white">
+          <Star className="h-2.5 w-2.5 fill-white" /> Primary
         </span>
       )}
-      <div className="flex flex-wrap gap-1 border-t border-border bg-background/60 p-1.5">
+      <div className="flex flex-wrap gap-1 border-t border-[#2A2A2A] bg-[#141414] p-1.5">
         {onSetPrimary && !isPrimary && (
-          <button onClick={onSetPrimary} className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:border-primary">
+          <button onClick={onSetPrimary} className="rounded border border-[#333333] p-1 text-[10px] text-gray-300 hover:border-[#FFC107] hover:text-[#FFC107]" title="Set as Primary">
             <Star className="h-3 w-3" />
           </button>
         )}
         {onReplace && (
-          <button onClick={onReplace} className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:border-primary" title="Replace">
+          <button onClick={onReplace} className="rounded border border-[#333333] p-1 text-[10px] text-gray-300 hover:border-[#FFC107] hover:text-white" title="Replace">
             <RefreshCw className="h-3 w-3" />
           </button>
         )}
-        <a href={url} download target="_blank" rel="noreferrer" className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:border-primary" title="Download">
+        <a href={url} download target="_blank" rel="noreferrer" className="rounded border border-[#333333] p-1 text-[10px] text-gray-300 hover:border-[#FFC107] hover:text-white" title="Download">
           <Download className="h-3 w-3" />
         </a>
         {onRegenerate && (
-          <button onClick={onRegenerate} className="rounded border border-primary/40 px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10" title="Regenerate">
+          <button onClick={onRegenerate} className="rounded border border-[#0D47FF]/40 p-1 text-[10px] text-[#0D47FF] hover:bg-[#0D47FF]/10" title="Regenerate">
             <RefreshCw className="h-3 w-3" />
           </button>
         )}
         {onDelete && (
-          <button onClick={onDelete} className="ml-auto rounded border border-destructive/40 px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10" title="Delete">
+          <button onClick={onDelete} className="ml-auto rounded border border-red-500/40 p-1 text-[10px] text-red-400 hover:bg-red-500/10" title="Delete">
             <X className="h-3 w-3" />
           </button>
         )}
@@ -214,10 +242,9 @@ export async function deleteStorageObject(path: string) {
     try {
       await deleteCloudinaryImage({ data: { url: path } });
     } catch (e) {
-      console.error("Failed to delete image from Cloudinary:", e);
+      console.warn("Failed to delete image from Cloudinary, trying Supabase storage:", e);
     }
   } else {
-    // Fallback to legacy Supabase storage removal
     const BUCKET = "product-images";
     await supabase.storage.from(BUCKET).remove([path]);
   }
